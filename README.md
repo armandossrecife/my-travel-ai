@@ -1,6 +1,6 @@
 # Instruções
 
-Este é um projeto de Multi-Agent AI com interface Web.
+Este é um **protótipo** de IA multiagente com interface web. Algumas funcionalidades não estão completamente implementadas, pois o objetivo deste protótipo é demonstrar como agentes de IA podem funcionar utilizando modelos de LLM.  
 
 ## Funcionalidades Implementadas
 - 4 agentes modulares (maestro, agente_aereo, agente_hotel, agente_turismo)
@@ -34,3 +34,7 @@ Telas disponíveis em [docs/telas](docs/telas)
 Imagem de serviços de API disponível em [docs/servicos](docs/servicos)      
 
 Testes automáticos disponíveis em [tests/test_agents.py](tests/test_agents.py)
+
+## Informações
+
+Dúvidas, mais informações ou sugestões envie um e-mail para armando@ufpi.edu.br
