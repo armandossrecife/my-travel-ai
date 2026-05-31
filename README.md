@@ -27,6 +27,8 @@ Saída esperada
 
 ## Projeto
 
+Planejamento do protótipo da solução disponível em [planos](planos)
+
 Telas disponíveis em [docs/telas](docs/telas)
 
 Imagem de serviços de API disponível em [docs/servicos](docs/servicos)      
