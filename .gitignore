@@ -1,0 +1,17 @@
+# env
+.venv
+
+# .env
+.env
+
+# logs
+logs
+.log
+
+# byte-compiled / __pycache__
+*.pyc
+__pycache__
+.pytest_cache
+
+# DS_Stores
+.DS_Store

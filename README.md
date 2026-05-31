@@ -1,0 +1,34 @@
+# Instruções
+
+Este é um projeto de Multi-Agent AI com interface Web.
+
+## Funcionalidades Implementadas
+- 4 agentes modulares (maestro, agente_aereo, agente_hotel, agente_turismo)
+- Execução paralela dos 3 agentes especialistas via concurrent.futures
+- Engine híbrida: Heurística local por padrão + Gemini LLM se GEMINI_API_KEY estiver configurada
+- Base de conhecimento rica para 7 destinos populares (Lisboa, Paris, Nova York, Miami, Buenos Aires, Roma + genérico)
+- Interface premium com Glassmorphism, dark mode, animação dos agentes em tempo real e 4 abas de resultado
+- Validação completa de datas, resiliência a falhas parciais
+
+## Execução
+
+```bash
+export GEMINI_API_KEY=sua_chave_aqui
+./run.sh
+```
+
+Saída esperada
+
+```bash
+🚀 Iniciando servidor em http://localhost:8000
+   Acesse a interface web em http://localhost:8000
+   Documentação da API em   http://localhost:8000/docs
+```
+
+## Projeto
+
+Telas disponíveis em docs/telas
+
+Imagem de serviços de API disponível em docs/servicos      
+
+Testes automáticos disponíveis em tests/test_agents.py

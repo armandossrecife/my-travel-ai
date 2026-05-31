@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TravelAI — Agente Inteligente de Viagens</title>
+  <meta name="description" content="Planeje sua viagem com IA multiagente. Gere pacotes de voos, hotéis e roteiros turísticos personalizados em segundos." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/index.css" />
+</head>
+<body>
+
+  <!-- ── HEADER ── -->
+  <header class="header">
+    <div class="header-inner">
+      <div class="logo">
+        <span class="logo-icon">✈️</span>
+        <span class="logo-text">Travel<span class="logo-accent">AI</span></span>
+      </div>
+      <div class="header-badge">
+        <span class="pulse-dot"></span>
+        <span>Powered by Multiagente IA</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── HERO ── -->
+  <section class="hero">
+    <div class="hero-glow hero-glow-1"></div>
+    <div class="hero-glow hero-glow-2"></div>
+    <div class="hero-glow hero-glow-3"></div>
+    <div class="hero-content">
+      <div class="hero-tag">🤖 4 Agentes Trabalhando por Você</div>
+      <h1 class="hero-title">
+        Planeje sua viagem<br />
+        <span class="gradient-text">com Inteligência Artificial</span>
+      </h1>
+      <p class="hero-subtitle">
+        Informe o destino e as datas. Nossos agentes especializados geram 
+        em segundos pacotes de voos, opções de hotéis e um roteiro turístico completo.
+      </p>
+    </div>
+  </section>
+
+  <!-- ── FORM SECTION ── -->
+  <section class="form-section">
+    <div class="container">
+      <div class="form-card glass">
+        <div class="form-header">
+          <h2 class="form-title">🗺️ Planeje sua Viagem</h2>
+          <p class="form-subtitle">Preencha os dados abaixo e deixe os agentes trabalharem</p>
+        </div>
+
+        <form id="travel-form" novalidate>
+          <div class="form-grid">
+
+            <!-- Origem -->
+            <div class="form-group">
+              <label for="cidade_origem" class="form-label">
+                <span class="label-icon">🛫</span> Cidade de Origem
+              </label>
+              <input
+                type="text"
+                id="cidade_origem"
+                name="cidade_origem"
+                placeholder="Ex: Teresina, São Paulo..."
+                class="form-input"
+                autocomplete="off"
+              />
+              <span class="form-hint">Opcional — melhora a busca de voos</span>
+            </div>
+
+            <!-- Destino -->
+            <div class="form-group required">
+              <label for="cidade_destino" class="form-label">
+                <span class="label-icon">🛬</span> Cidade de Destino *
+              </label>
+              <input
+                type="text"
+                id="cidade_destino"
+                name="cidade_destino"
+                placeholder="Ex: Lisboa, Paris, Nova York..."
+                class="form-input"
+                required
+                autocomplete="off"
+              />
+              <span class="form-error" id="err-destino">Informe a cidade de destino.</span>
+            </div>
+
+            <!-- Data Saída -->
+            <div class="form-group required">
+              <label for="data_saida" class="form-label">
+                <span class="label-icon">📅</span> Data de Saída *
+              </label>
+              <input
+                type="date"
+                id="data_saida"
+                name="data_saida"
+                class="form-input"
+                required
+              />
+              <span class="form-error" id="err-saida">Informe a data de saída.</span>
+            </div>
+
+            <!-- Data Retorno -->
+            <div class="form-group required">
+              <label for="data_retorno" class="form-label">
+                <span class="label-icon">🔙</span> Data de Retorno *
+              </label>
+              <input
+                type="date"
+                id="data_retorno"
+                name="data_retorno"
+                class="form-input"
+                required
+              />
+              <span class="form-error" id="err-retorno">A data de retorno deve ser posterior à de saída.</span>
+            </div>
+
+            <!-- Viajantes -->
+            <div class="form-group">
+              <label for="quantidade_viajantes" class="form-label">
+                <span class="label-icon">👥</span> Viajantes
+              </label>
+              <select id="quantidade_viajantes" name="quantidade_viajantes" class="form-input form-select">
+                <option value="1">1 pessoa</option>
+                <option value="2">2 pessoas</option>
+                <option value="3">3 pessoas</option>
+                <option value="4">4 pessoas</option>
+                <option value="5">5+ pessoas</option>
+              </select>
+            </div>
+
+            <!-- Ritmo -->
+            <div class="form-group">
+              <label for="ritmo_roteiro" class="form-label">
+                <span class="label-icon">⚡</span> Ritmo do Roteiro
+              </label>
+              <select id="ritmo_roteiro" name="ritmo_roteiro" class="form-input form-select">
+                <option value="leve">🌴 Leve — relax e contemplação</option>
+                <option value="moderado" selected>⚖️ Moderado — equilíbrio ideal</option>
+                <option value="intenso">🏃 Intenso — ver tudo!</option>
+              </select>
+            </div>
+
+            <!-- Interesses -->
+            <div class="form-group full-width">
+              <label class="form-label">
+                <span class="label-icon">❤️</span> Interesses
+              </label>
+              <div class="interests-grid" id="interests-grid">
+                <label class="interest-chip">
+                  <input type="checkbox" name="interesses" value="história" />
+                  <span>🏛️ História</span>
+                </label>
+                <label class="interest-chip">
+                  <input type="checkbox" name="interesses" value="gastronomia" />
+                  <span>🍽️ Gastronomia</span>
+                </label>
+                <label class="interest-chip">
+                  <input type="checkbox" name="interesses" value="museus" />
+                  <span>🖼️ Museus</span>
+                </label>
+                <label class="interest-chip">
+                  <input type="checkbox" name="interesses" value="natureza" />
+                  <span>🌿 Natureza</span>
+                </label>
+                <label class="interest-chip">
+                  <input type="checkbox" name="interesses" value="arquitetura" />
+                  <span>🏗️ Arquitetura</span>
+                </label>
+                <label class="interest-chip">
+                  <input type="checkbox" name="interesses" value="compras" />
+                  <span>🛍️ Compras</span>
+                </label>
+                <label class="interest-chip">
+                  <input type="checkbox" name="interesses" value="praias" />
+                  <span>🏖️ Praias</span>
+                </label>
+                <label class="interest-chip">
+                  <input type="checkbox" name="interesses" value="vida noturna" />
+                  <span>🎭 Vida Noturna</span>
+                </label>
+              </div>
+            </div>
+
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" id="btn-submit" class="btn-primary">
+              <span class="btn-icon">🚀</span>
+              <span class="btn-text">Planejar Viagem</span>
+              <span class="btn-loader hidden">
+                <svg class="spin" width="20" height="20" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="60" stroke-dashoffset="15" stroke-linecap="round"/>
+                </svg>
+              </span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── AGENTS PROGRESS ── -->
+  <section id="agents-progress" class="agents-section hidden">
+    <div class="container">
+      <div class="agents-header">
+        <h2 class="section-title">🤖 Agentes em Ação</h2>
+        <p class="section-subtitle">Sua equipe de especialistas em IA está trabalhando...</p>
+      </div>
+      <div class="agents-timeline">
+        <div class="agent-card" id="agent-maestro" data-status="waiting">
+          <div class="agent-icon">🎼</div>
+          <div class="agent-info">
+            <div class="agent-name">Maestro</div>
+            <div class="agent-desc">Validando e coordenando os agentes...</div>
+          </div>
+          <div class="agent-status-badge">Aguardando</div>
+        </div>
+        <div class="agent-connector"></div>
+        <div class="agents-parallel">
+          <div class="agent-card" id="agent-aereo" data-status="waiting">
+            <div class="agent-icon">✈️</div>
+            <div class="agent-info">
+              <div class="agent-name">Agente Aéreo</div>
+              <div class="agent-desc">Buscando melhores voos...</div>
+            </div>
+            <div class="agent-status-badge">Aguardando</div>
+          </div>
+          <div class="agent-card" id="agent-hotel" data-status="waiting">
+            <div class="agent-icon">🏨</div>
+            <div class="agent-info">
+              <div class="agent-name">Agente Hotel</div>
+              <div class="agent-desc">Pesquisando hospedagens...</div>
+            </div>
+            <div class="agent-status-badge">Aguardando</div>
+          </div>
+          <div class="agent-card" id="agent-turismo" data-status="waiting">
+            <div class="agent-icon">🗺️</div>
+            <div class="agent-info">
+              <div class="agent-name">Agente Turismo</div>
+              <div class="agent-desc">Montando roteiro diário...</div>
+            </div>
+            <div class="agent-status-badge">Aguardando</div>
+          </div>
+        </div>
+        <div class="agent-connector"></div>
+        <div class="agent-card" id="agent-consolidar" data-status="waiting">
+          <div class="agent-icon">📋</div>
+          <div class="agent-info">
+            <div class="agent-name">Consolidação</div>
+            <div class="agent-desc">Montando plano final...</div>
+          </div>
+          <div class="agent-status-badge">Aguardando</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── RESULTS ── -->
+  <section id="results-section" class="results-section hidden">
+    <div class="container">
+
+      <!-- Sumário da viagem -->
+      <div class="trip-summary glass" id="trip-summary">
+        <div class="summary-header">
+          <div class="summary-badge" id="status-badge"></div>
+          <h2 class="summary-title" id="summary-title"></h2>
+        </div>
+        <div class="summary-stats" id="summary-stats"></div>
+        <div class="summary-recommendation" id="summary-recommendation"></div>
+      </div>
+
+      <!-- Estimativa de custos -->
+      <div class="cost-cards" id="cost-cards"></div>
+
+      <!-- Tabs -->
+      <div class="tabs-container">
+        <div class="tabs-nav" role="tablist">
+          <button class="tab-btn active" role="tab" data-tab="flights" aria-selected="true" id="tab-flights">
+            ✈️ Voos
+          </button>
+          <button class="tab-btn" role="tab" data-tab="hotels" aria-selected="false" id="tab-hotels">
+            🏨 Hotéis
+          </button>
+          <button class="tab-btn" role="tab" data-tab="itinerary" aria-selected="false" id="tab-itinerary">
+            🗺️ Roteiro
+          </button>
+          <button class="tab-btn" role="tab" data-tab="alerts" aria-selected="false" id="tab-alerts">
+            ⚠️ Alertas
+          </button>
+        </div>
+
+        <div class="tab-content active" id="tab-content-flights" role="tabpanel">
+          <div id="flights-content"></div>
+        </div>
+        <div class="tab-content" id="tab-content-hotels" role="tabpanel">
+          <div id="hotels-content"></div>
+        </div>
+        <div class="tab-content" id="tab-content-itinerary" role="tabpanel">
+          <div id="itinerary-content"></div>
+        </div>
+        <div class="tab-content" id="tab-content-alerts" role="tabpanel">
+          <div id="alerts-content"></div>
+        </div>
+      </div>
+
+      <!-- Novo Planejamento -->
+      <div class="new-plan-cta">
+        <button id="btn-new-plan" class="btn-secondary">
+          🔄 Planejar Nova Viagem
+        </button>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ── ERROR SECTION ── -->
+  <section id="error-section" class="error-section hidden">
+    <div class="container">
+      <div class="error-card glass">
+        <div class="error-icon">❌</div>
+        <h3 class="error-title">Não foi possível processar</h3>
+        <div id="error-messages" class="error-messages"></div>
+        <button id="btn-retry" class="btn-secondary">Tentar Novamente</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── FOOTER ── -->
+  <footer class="footer">
+    <div class="footer-inner">
+      <p>TravelAI — Sistema Multiagente de Planejamento de Viagens</p>
+      <p class="footer-note">⚠️ Valores gerados por IA são estimativas. Confirme sempre em fontes oficiais.</p>
+    </div>
+  </footer>
+
+  <script src="/static/index.js"></script>
+</body>
+</html>
