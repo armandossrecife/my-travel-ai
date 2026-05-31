@@ -27,8 +27,8 @@ Saída esperada
 
 ## Projeto
 
-Telas disponíveis em docs/telas
+Telas disponíveis em [docs/telas](docs/telas)
 
-Imagem de serviços de API disponível em docs/servicos      
+Imagem de serviços de API disponível em [docs/servicos](docs/servicos)      
 
-Testes automáticos disponíveis em tests/test_agents.py
+Testes automáticos disponíveis em [tests/test_agents.py](tests/test_agents.py)
