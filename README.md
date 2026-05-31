@@ -39,4 +39,4 @@ Testes automáticos disponíveis em [tests/test_agents.py](tests/test_agents.py)
 
 Dúvidas, mais informações ou sugestões envie um e-mail para armando@ufpi.edu.br
 
-Observação: esta aplicação é apenas um protótipo, não use em produção.
+Observação: esta aplicação é apenas um protótipo didático para trabalhar os conceitos básicos de Agentes de IA Generativa, não use em produção.
