@@ -8,7 +8,7 @@
 
 Observação:
 1. Você pode criar os arquivos [plano.md](plano.md) e [skill.md](https://github.com/armandossrecife/my-travel-ai/blob/main/skills/skill.md) usando seu assistente (chat-bot) de IA preferido. Neste exemplo, o [prompt base](prompt.md) foi passado para o ChatGPT usando o modelo GPT 5.5
-2. Uma vez criados os arquivos plano.md e skill.md você pode usar uma ferramenta de Agende de Geração de Código ([Antigravity](https://antigravity.google), [Claude Code](https://claude.com/product/claude-code), [OpenCode](https://opencode.ai), [Zed.dev](https://zed.dev)) para criar seu protótipo. Nesta etapa, talvez você precise de crédito extra, dependendo do modelo LLM escolhido e da ferramenta. 
+2. Uma vez criados os arquivos plano.md e skill.md você pode usar uma ferramenta de Agende de Geração de Código ([Antigravity](https://antigravity.google), [Claude Code](https://claude.com/product/claude-code), [OpenCode](https://opencode.ai), [Zed.dev](https://zed.dev)) para criar seu protótipo. Nesta etapa, talvez você precise de crédito extra, dependendo do modelo LLM escolhido e da ferramenta. Aqui você deve trabalhar como um arquiteto de solução, descrevendo os principais componentes, seus relacionamentos, restrições, requisitos funcionais e não-funcionais, stack de tecnologia e etc. Junto com a ferramenta, você deve criar planos, revisá-los, implementá-los e testar os artefatos gerados.  
 
 ## Prompt de criação da aplicação do TravelAI
 
