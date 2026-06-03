@@ -266,7 +266,7 @@ Responda SOMENTE com JSON puro, sem markdown, no formato:
 
 REGRAS: Atrações reais, roteiro realista, {ctx.quantidade_dias} dias exatos.
 """
-        response = client.models.generate_content(model="gemini-2.0-flash", contents=prompt)
+        response = client.models.generate_content(model="gemini-3.5-flash", contents=prompt)
         raw = response.text.strip()
         if raw.startswith("```"):
             raw = raw.split("```")[1]

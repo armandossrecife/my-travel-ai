@@ -15,3 +15,6 @@ __pycache__
 
 # DS_Stores
 .DS_Store
+
+# Temp files
+/tmp

@@ -919,11 +919,15 @@ document.querySelector('#travelForm').addEventListener('submit', async (e) => {
 
 | Componente | Descrição | Tecnologias |
 |------------|-----------|-------------|
-| Formulário | Coleta dados da viagem | HTML5 form + validation |
-| Animação de Agentes | Feedback visual durante processamento | CSS animations + JS delays simulados |
-| Abas de Resultado | Organização do plano em seções | HTML tabs + CSS transitions |
+| Formulário | Coleta dados da viagem com validação visual | HTML5 form + JS validation |
+| Animação de Agentes | Feedback visual em tempo real do processamento | CSS animations + JS async simulation |
+| Abas de Resultado | Organização do plano em 4 seções | HTML tabs + CSS transitions |
 | Cards de Opções | Exibição de voos/hotéis comparáveis | CSS Grid + flexbox |
 | Roteiro Diário | Timeline visual do itinerário | CSS flex + date formatting |
+| **Glassmorphism Design** | **Efeito de vidro fosco com blur e transparência** | **CSS backdrop-filter + rgba colors** |
+| **Dark/Light Mode** | **Alternância suave de tema com persistência** | **CSS variables + localStorage + JS toggle** |
+| **Formatação de Moeda** | **Exibição automática em BRL ou USD** | **JS Intl.NumberFormat API** |
+| **Validação de Formulário** | **Feedback visual imediato com destaque em campos** | **JS DOM manipulation + CSS classes** |
 
 ### 8.4 Limitações do Frontend Atual
 
@@ -932,11 +936,41 @@ document.querySelector('#travelForm').addEventListener('submit', async (e) => {
 - ⚠️ Sem internacionalização (i18n)
 - ⚠️ Acessibilidade básica (ARIA labels mínimos)
 
+### 8.5 Novas Funcionalidades de UI (Implementadas)
+
+#### **Design System Moderno**
+- **Glassmorphism**: Efeito de vidro fosco com `backdrop-filter: blur()` e transparência
+- **CSS Variables**: Sistema de temas com variáveis CSS para cores e transições
+- **Responsivo**: Adaptação para diferentes tamanhos de tela
+
+#### **Sistema de Temas (Dark/Light Mode)**
+- **Toggle Button**: Botão no header para alternar entre temas
+- **Persistência**: Salvamento da preferência no `localStorage`
+- **Detecção Automática**: Leitura de `prefers-color-scheme` do sistema
+- **Transição Suave**: Animação de 0.3s entre temas
+
+#### **Animações Avançadas**
+- **Agent Cards**: Animação sequencial dos 3 agentes durante processamento
+- **Status Badges**: Atualização visual de status (pending → processing → done/error)
+- **Loading States**: Feedback visual enquanto API processa
+
+#### **Validação e Formatação**
+- **Form Validation**: Validação de campos obrigatórios com feedback visual
+- **Date Validation**: Verificação de datas (retorno > saída)
+- **Currency Formatting**: `formatCurrency()` com suporte a BRL e USD
+- **Error Handling**: Exibição de alertas e erros amigáveis
+
+#### **Arquivos da Interface**
+- `static/index.html` - Estrutura semântica da página
+- `static/index.css` - Estilos com Glassmorphism e temas
+- `static/index.js` - Lógica de interação, validação e chamadas à API
+- `static/index_corrected.css` - Correções de estilo específicas
+
 ---
 
 ## 9. Testes e Qualidade
 
-### 9.1 Suíte de Testes (`tests/test_agents.py`)
+### 9.1 Suíte de Testes Backend (`tests/test_agents.py`)
 
 **Execução:**
 ```bash
@@ -955,7 +989,110 @@ pytest tests/test_agents.py -v
 | Metadados | 2 | Geração de `request_id` único, presença de alertas |
 | Orquestração | 10 | Validação do maestro: status, consolidação, tratamento de falhas |
 
-### 9.2 Lacunas de Teste (Recomendações)
+### 9.2 Testes Frontend/UI (`tests/test_js_functions.py`)
+
+**Localização**: `tests/test_js_functions.py`
+
+Como o ambiente pode não ter Node.js, foram criados testes em **Python** que simulam a lógica das funções JavaScript.
+
+**Execução:**
+```bash
+cd my-travel-ai
+python tests/test_js_functions.py
+```
+
+**Saída Esperada:**
+```
+🧪 Executando testes das funções JavaScript...
+
+📋 TestFormatCurrency
+--------------------------------------------------
+  ✅ test_format_negative_value
+  ✅ test_format_null_value
+  ✅ test_format_undefined_value
+  ✅ test_format_valid_value_brl
+  ✅ test_format_valid_value_usd
+  ✅ test_format_zero_value
+
+📋 TestValidateForm
+--------------------------------------------------
+  ✅ test_city_with_spaces
+  ✅ test_empty_city
+  ✅ test_missing_data_retorno
+  ✅ test_missing_data_saida
+  ✅ test_return_before_departure
+  ✅ test_same_dates
+  ✅ test_valid_data
+
+📋 TestThemeFunctions
+--------------------------------------------------
+  ✅ test_theme_default
+  ✅ test_theme_logic_dark_to_light
+  ✅ test_theme_logic_light_to_dark
+
+📋 TestJavaScriptSyntax
+--------------------------------------------------
+  ✅ test_file_exists
+  ✅ test_has_required_functions
+  ✅ test_js_syntax_basic
+
+📋 TestIntegration
+--------------------------------------------------
+  ✅ test_complete_flow
+
+==================================================
+📊 Resultado: 20/20 testes passaram
+==================================================
+```
+
+**O que é testado:**
+- ✅ `formatCurrency()` - Formatação de moeda (BRL, USD, null, undefined)
+- ✅ `validateForm()` - Validação de formulário (campos obrigatórios, datas)
+- ✅ `getPreferredTheme()` - Detecção de tema (localStorage, preferência do sistema)
+- ✅ `applyTheme()` - Aplicação de tema e salvamento
+- ✅ `toggleTheme()` - Alternância dark/light mode
+- ✅ Sintaxe do arquivo JavaScript (verificação de chaves, parênteses, funções)
+- ✅ Integração completa (validar → formatar)
+
+### 9.3 Testes JavaScript Nativos com Jest (Opcional)
+
+**Localização**: `tests/index.test.js` e `package.json`
+
+Caso tenha **Node.js** instalado, há configuração para testes nativos em Jest:
+
+**Execução:**
+```bash
+# Instalar dependências (apenas primeira vez)
+npm install
+
+# Executar testes Jest
+npm test
+```
+
+**Pré-requisitos:**
+- Node.js instalado
+- `npm install` executado
+
+**O que é testado:**
+- Funções JavaScript com mocks do DOM (jsdom)
+- Simulação de `localStorage`, `matchMedia`, `document`
+- Testes de integração da lógica de UI
+
+### 9.4 Como Executar Todos os Testes
+
+```bash
+# 1. Testes Python (Backend)
+cd my-travel-ai
+python -m pytest tests/test_agents.py -v
+
+# 2. Testes das funções JavaScript (Python)
+python tests/test_js_functions.py
+
+# 3. Testes Jest (se tiver Node.js)
+npm test
+```
+
+### 9.5 Lacunas de Teste (Recomendações)
 
 ```python
 # 1. Testes de API com TestClient
@@ -989,16 +1126,24 @@ def test_maestro_timeout_handling():
 # async def test_form_submission_and_rendering(page):
 #     await page.goto("http://localhost:8000")
 #     # ... preencher formulário e validar resultado
+
+# 5. Testes adicionais para UI (sugeridos)
+# - test_theme_persistence: Testar se tema salva e carrega do localStorage
+# - test_form_validation_errors: Testar exibição de erros no formulário
+# - test_currency_formatting_edge_cases: Testar valores extremos na formatação
+# - test_agent_animation_sequence: Testar sequência de animação dos agentes
 ```
 
-### 9.3 Métricas de Qualidade
+### 9.6 Métricas de Qualidade
 
 | Métrica | Valor Atual | Meta Recomendada |
 |---------|-------------|-----------------|
-| Testes passando | 25/25 | Manter 100% |
+| Testes Backend passando | 25/25 | Manter 100% |
+| Testes Frontend (JS Functions) | 20/20 | Manter 100% |
 | Cobertura de código | ~60% (estimado) | ≥80% |
 | Tempo de execução dos testes | 0.20s | <1s |
 | Dependências externas nos testes | 0 | Manter 0 (mock tudo) |
+| Testes E2E (UI) | 0 | Adicionar Playwright/Cypress |
 
 ---
 
