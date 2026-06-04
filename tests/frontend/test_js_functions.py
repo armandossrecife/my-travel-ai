@@ -175,13 +175,19 @@ class TestJavaScriptSyntax:
 
     def test_file_exists(self):
         """Verifica se o arquivo index.js existe"""
-        js_path = os.path.join(os.path.dirname(__file__), "..", "static", "index.js")
-        assert os.path.exists(js_path), "Arquivo index.js não encontrado"
+        js_path = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "..", "..", "static", "index.js")
+        )
+        assert os.path.exists(js_path), f"Arquivo index.js não encontrado em {js_path}"
 
     def test_has_required_functions(self):
         """Verifica se as funções principais estão definidas no JS"""
-        js_path = os.path.join(os.path.dirname(__file__), "..", "static", "index.js")
-
+        js_path = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "..", "..", "static", "index.js")
+        )
+        
+        assert os.path.exists(js_path), f"Arquivo index.js não encontrado em {js_path}"
+        
         with open(js_path, "r", encoding="utf-8") as f:
             content = f.read()
 
@@ -198,8 +204,12 @@ class TestJavaScriptSyntax:
 
     def test_js_syntax_basic(self):
         """Validação básica de sintaxe JavaScript"""
-        js_path = os.path.join(os.path.dirname(__file__), "..", "static", "index.js")
-
+        js_path = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "..", "..", "static", "index.js")
+        )
+        
+        assert os.path.exists(js_path), f"Arquivo index.js não encontrado em {js_path}"
+        
         with open(js_path, "r", encoding="utf-8") as f:
             content = f.read()
 
@@ -220,10 +230,10 @@ class TestJavaScriptSyntax:
 
 class TestIntegration:
     """Testes de integração simulando o fluxo completo"""
-
+    
     def test_complete_flow(self):
         """Simula o fluxo completo: validar formulário -> formatar moeda"""
-
+        
         # Dados do formulário
         formData = {
             "cidade_destino": "Paris",
@@ -254,7 +264,6 @@ class TestIntegration:
             return str(value)
 
         preco_formatado = format_currency(preco)
-        # Python formata como "R$ 3,500.75" (diferente do JS que seria "R$ 3.500,75")
         assert "3,500" in preco_formatado or "3500" in preco_formatado
         assert "75" in preco_formatado
 

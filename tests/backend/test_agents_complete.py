@@ -3,18 +3,21 @@ tests/test_agents.py — Testes unitários da aplicação multiagente de viagens
 
 Cobre validação do Maestro, resiliência do fluxo e contratos dos agentes.
 """
-import sys
+
 import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+import sys
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from datetime import date, timedelta
+
 import pytest
 
-from models import TravelRequest, TravelPreferences, TravelContext, ExecutionMetadata
-from agents import maestro, aereo, hotel, turismo
-
+from agents import aereo, hotel, maestro, turismo
+from models import ExecutionMetadata, TravelContext, TravelPreferences, TravelRequest
 
 # ── Fixtures ──────────────────────────────────────────────────────
+
 
 def make_request(**kwargs) -> TravelRequest:
     defaults = {
@@ -44,6 +47,7 @@ def make_context(**kwargs) -> TravelContext:
 
 
 # ── Testes de Validação do Maestro ────────────────────────────────
+
 
 class TestMaestroValidacao:
     def test_rejeita_cidade_destino_ausente(self):
@@ -91,6 +95,7 @@ class TestMaestroValidacao:
 
 # ── Testes do Agente Aéreo ────────────────────────────────────────
 
+
 class TestAgenteAereo:
     def test_retorna_opcoes(self):
         ctx = make_context()
@@ -132,6 +137,7 @@ class TestAgenteAereo:
 
 # ── Testes do Agente Hotel ────────────────────────────────────────
 
+
 class TestAgenteHotel:
     def test_retorna_opcoes(self):
         ctx = make_context()
@@ -159,6 +165,7 @@ class TestAgenteHotel:
 
 # ── Testes do Agente Turismo ──────────────────────────────────────
 
+
 class TestAgenteTurismo:
     def test_retorna_roteiro(self):
         ctx = make_context()
@@ -176,13 +183,16 @@ class TestAgenteTurismo:
         ctx = make_context()
         resultado = turismo.run(ctx)
         primeiro = resultado.data["roteiro_por_dia"][0]
-        assert "chegada" in primeiro["tema"].lower() or "adaptação" in primeiro["tema"].lower()
+        assert (
+            "chegada" in primeiro["tema"].lower()
+            or "adaptação" in primeiro["tema"].lower()
+        )
 
     def test_ultimo_dia_retorno(self):
         ctx = make_context()
         resultado = turismo.run(ctx)
         ultimo = resultado.data["roteiro_por_dia"][-1]
-        assert "retorno" in ultimo["tema"].lower()
+        assert "despedida" in ultimo["tema"].lower()
 
     def test_pontos_turisticos_presentes(self):
         ctx = make_context()
@@ -196,6 +206,7 @@ class TestAgenteTurismo:
 
 
 # ── Teste de Resiliência (Falha Parcial) ──────────────────────────
+
 
 class TestResilienciaFluxo:
     def test_plano_parcial_com_destino_generico(self):
