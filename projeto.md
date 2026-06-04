@@ -1090,6 +1090,9 @@ python tests/test_js_functions.py
 
 # 3. Testes Jest (se tiver Node.js)
 npm test
+
+# 4. Testes de Integração
+python -m pytest tests/test_integration.py -v
 ```
 
 ### 9.5 Lacunas de Teste (Recomendações)
@@ -1140,10 +1143,28 @@ def test_maestro_timeout_handling():
 |---------|-------------|-----------------|
 | Testes Backend passando | 25/25 | Manter 100% |
 | Testes Frontend (JS Functions) | 20/20 | Manter 100% |
+| Testes de Integração | 5/5 | Manter 100% |
 | Cobertura de código | ~60% (estimado) | ≥80% |
 | Tempo de execução dos testes | 0.20s | <1s |
 | Dependências externas nos testes | 0 | Manter 0 (mock tudo) |
 | Testes E2E (UI) | 0 | Adicionar Playwright/Cypress |
+
+### 9.7 Testes de Integração (Backend + Frontend + API)
+
+**Localização**: `tests/test_integration.py`
+
+Valida o fluxo completo de ponta a ponta da aplicação, garantindo a comunicação correta entre todas as camadas.
+
+**O que é testado**:
+- ✅ Fluxo completo: Envio de formulário → Processamento de agentes → Exibição de resultados
+- ✅ Integração frontend-backend via chamadas à API REST
+- ✅ Fallback entre heurística local e LLM (se `GEMINI_API_KEY` estiver configurada)
+- ✅ Tratamento de erros parciais e resiliência do maestro
+
+**Execução:**
+```bash
+python -m pytest tests/test_integration.py -v
+```
 
 ---
 
@@ -1226,33 +1247,23 @@ curl http://localhost:8000/api/health
 # Resposta: {"status": "ok", "llm_enabled": false}
 ```
 
-### 11.2 Logs Estruturados Recomendados
+### 11.2 Captura Estruturada de Logs (Implementada)
 
-```python
-# requirements.txt - Adicionar
-structlog==24.1.0
-python-json-logger==2.0.7
+O projeto implementa captura estruturada de logs para rastrear eventos em todas as camadas da aplicação:
 
-# Configuração inicial (main.py)
-import structlog
+**Backend:**
+- Utiliza o módulo `logging` nativo do Python com configuração de rotação de arquivos.
+- Registra requisições à API, execução de agentes, erros e tempos de processamento.
+- Armazenamento: `logs/app.log`
 
-structlog.configure(
-    processors=[
-        structlog.processors.add_log_level,
-        structlog.processors.TimeStamper(fmt="iso"),
-        structlog.processors.dict_tracebacks,
-        structlog.processors.JSONRenderer()
-    ],
-    context_class=dict,
-    logger_factory=structlog.PrintLoggerFactory(),
-)
+**Frontend:**
+- Logs de interação do usuário e chamadas à API via `console.log` estruturado no JavaScript.
+- Registro de alternância de tema, validação de formulário e respostas da API.
+- Exibição direta no console do navegador para depuração.
 
-logger = structlog.get_logger()
-
-# Uso no maestro:
-logger.info("maestro.iniciado", request_id=request_id, destino=ctx.cidade_destino)
-logger.debug("agente.executado", agent="aereo", status=resultado.status, duration_ms=duration_ms)
-```
+**Integração:**
+- Captura de logs de comunicação entre frontend e backend, incluindo tempos de resposta e erros de rede.
+- Registro de fallback entre heurística local e LLM (se configurado).
 
 ### 11.3 Métricas para Prometheus (Sugestão)
 

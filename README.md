@@ -16,6 +16,7 @@ Este é um **protótipo** de IA multiagente com interface web. Algumas funcional
   - Formatação automática de moeda (BRL, USD)
   - Responsivo para diferentes tamanhos de tela
 - Validação completa de datas, resiliência a falhas parciais
+- Captura estruturada de logs para monitoramento de backend, frontend e integração de API
 
 ## Interface Web (UI)
 
@@ -49,6 +50,24 @@ Saída esperada:
    Acesse a interface web em http://localhost:8000
    Documentação da API em   http://localhost:8000/docs
 ```
+
+## Captura de Logs
+
+O projeto implementa captura estruturada de logs para rastrear eventos em todas as camadas da aplicação:
+
+### Backend
+- Utiliza o módulo `logging` nativo do Python com configuração de rotação de arquivos.
+- Registra requisições à API, execução de agentes, erros e tempos de processamento.
+- Armazenamento: `logs/app.log`
+
+### Frontend
+- Logs de interação do usuário e chamadas à API via `console.log` estruturado no JavaScript.
+- Registro de alternância de tema, validação de formulário e respostas da API.
+- Exibição direta no console do navegador para depuração.
+
+### Integração
+- Captura de logs de comunicação entre frontend e backend, incluindo tempos de resposta e erros de rede.
+- Registro de fallback entre heurística local e LLM (se configurado).
 
 ## Testes da Aplicação
 
@@ -114,6 +133,24 @@ npm install
 npm test
 ```
 
+### Testes de Integração
+
+Valida o fluxo completo de ponta a ponta da aplicação, garantindo a comunicação correta entre todas as camadas:
+
+**Localização**: `tests/test_integration.py`
+
+**O que é testado**:
+- ✅ Fluxo completo: Envio de formulário → Processamento de agentes → Exibição de resultados
+- ✅ Integração frontend-backend via chamadas à API REST
+- ✅ Fallback entre heurística local e LLM (se `GEMINI_API_KEY` estiver configurada)
+- ✅ Tratamento de erros parciais e resiliência do maestro
+
+```bash
+# Executar testes de integração
+cd my-travel-ai
+python -m pytest tests/test_integration.py -v
+```
+
 ## Como Executar Todos os Testes
 
 ```bash
@@ -125,6 +162,9 @@ python tests/test_js_functions.py
 
 # 3. Testes Jest (se tiver Node.js)
 npm test
+
+# 4. Testes de Integração
+python -m pytest tests/test_integration.py -v
 ```
 
 ## Projeto
