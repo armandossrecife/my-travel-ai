@@ -1489,3 +1489,102 @@ body {
         padding: 20px 16px;
     }
 }
+
+
+/* ── Logs Panel ────────────────────────────── */
+.logs-section {
+  padding: 4rem 0;
+  background: var(--bg-surface);
+}
+
+.logs-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.logs-container {
+  background: var(--bg-base);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: 1.5rem;
+  max-height: 400px;
+  overflow-y: auto;
+  font-family: "Courier New", monospace;
+  font-size: 0.9rem;
+}
+
+.log-entry {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.log-time {
+  color: var(--text-muted);
+  min-width: 80px;
+}
+
+.log-agent {
+  color: var(--primary-light);
+  font-weight: 600;
+  min-width: 100px;
+}
+
+.log-message {
+  color: var(--text-primary);
+  flex: 1;
+}
+
+.log-success .log-agent {
+  color: var(--success);
+}
+
+.log-error .log-agent {
+  color: var(--error);
+}
+
+.log-warning .log-agent {
+  color: var(--warning);
+}
+
+.logs-summary {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  border-radius: var(--radius-sm);
+  text-align: center;
+  font-weight: 600;
+}
+
+.logs-summary-success {
+  background: rgba(0, 230, 118, 0.1);
+  border: 1px solid var(--success);
+  color: var(--success);
+}
+
+.logs-summary-error {
+  background: rgba(255, 82, 82, 0.1);
+  border: 1px solid var(--error);
+  color: var(--error);
+}
+
+/* Scrollbar para logs */
+.logs-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.logs-container::-webkit-scrollbar-track {
+  background: var(--bg-elevated);
+  border-radius: 4px;
+}
+
+.logs-container::-webkit-scrollbar-thumb {
+  background: var(--primary);
+  border-radius: 4px;
+}
+
+.logs-container::-webkit-scrollbar-thumb:hover {
+  background: var(--primary-light);
+}
+

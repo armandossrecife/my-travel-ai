@@ -9,6 +9,9 @@ const btnRetry = document.getElementById("btn-retry");
 const agentsSection = document.getElementById("agents-progress");
 const resultsSection = document.getElementById("results-section");
 const errorSection = document.getElementById("error-section");
+const logsSection = document.getElementById("logs-section");
+const logsContainer = document.getElementById("logs-container");
+const logsSummary = document.getElementById("logs-summary");
 
 // ── Theme Management ────────────────────────────────────────
 const THEME_KEY = "travelai-theme";
@@ -620,7 +623,7 @@ form.addEventListener("submit", async (e) => {
   // UI: loading state
   btnSubmit.disabled = true;
   btnSubmit.querySelector(".btn-text").textContent = "Processando...";
-  btnSubmit.querySelector(".btn-loader")?.classList.remove("hidden");
+  btnSubmit.querySelector(".btn-loader")?.classList.add("hidden");
   btnSubmit.querySelector(".btn-icon").classList.add("hidden");
 
   hideAllSections();
@@ -630,47 +633,114 @@ form.addEventListener("submit", async (e) => {
   // Scroll suave para agentes
   agentsSection.scrollIntoView({ behavior: "smooth", block: "start" });
 
+  // Limpa logs anteriores
+  logsContainer.innerHTML = "";
+  logsSummary.classList.add("hidden");
+  logsSummary.innerHTML = "";
+
   try {
+    // 1. Faz POST para iniciar processamento
     const response = await fetch("/api/plan", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     });
 
-    const result = await response.json();
+    const initResult = await response.json();
 
     if (!response.ok) {
-      throw { detail: result.detail };
+      throw { detail: initResult.detail };
     }
 
-    // Anima conclusão com pequeno delay
-    setTimeout(() => {
-      finishAgentAnimation(result);
+    const requestId = initResult.request_id;
 
-      setTimeout(() => {
-        // Renderiza resultados
-        renderSummary(result);
-        renderCosts(result);
-        renderFlights(result.resultado?.passagens_aereas);
-        renderHotels(result.resultado?.hoteis);
-        renderItinerary(result.resultado?.roteiro_turistico);
-        renderAlerts(result);
+    // 2. Abre SSE para receber logs em tempo real
+    const eventSource = new EventSource(`/api/stream/${requestId}`);
 
-        // Reset tabs
-        document.querySelectorAll(".tab-btn").forEach((b) => {
-          b.classList.remove("active");
-          b.setAttribute("aria-selected", "false");
-        });
-        document
-          .querySelectorAll(".tab-content")
-          .forEach((c) => c.classList.remove("active"));
-        document.getElementById("tab-flights")?.classList.add("active");
-        document.getElementById("tab-content-flights")?.classList.add("active");
+    // Mostra painel de logs
+    logsSection.classList.remove("hidden");
 
-        showSection("results");
-        resultsSection.scrollIntoView({ behavior: "smooth", block: "start" });
-      }, 800);
-    }, 1000);
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+
+        if (data.event === "done") {
+          // Processamento concluído
+          eventSource.close();
+
+          const result = data.result;
+
+          // Atualiza cards de agentes
+          finishAgentAnimation(result);
+
+          // Mostra resumo dos logs
+          const allSuccess = result.status === "sucesso";
+          logsSummary.classList.remove("hidden");
+          logsSummary.innerHTML = `
+            <div class="logs-summary-${allSuccess ? "success" : "error"}">
+              <span>${allSuccess ? "✅" : "⚠️"}</span>
+              <span>Todas as operações foram concluídas ${allSuccess ? "com sucesso!" : "com alertas."}</span>
+            </div>
+          `;
+
+          // Renderiza resultados
+          setTimeout(() => {
+            renderSummary(result);
+            renderCosts(result);
+            renderFlights(result.resultado?.passagens_aereas);
+            renderHotels(result.resultado?.hoteis);
+            renderItinerary(result.resultado?.roteiro_turistico);
+            renderAlerts(result);
+
+            // Reset tabs
+            document.querySelectorAll(".tab-btn").forEach((b) => {
+              b.classList.remove("active");
+              b.setAttribute("aria-selected", "false");
+            });
+            document
+              .querySelectorAll(".tab-content")
+              .forEach((c) => c.classList.remove("active"));
+            document.getElementById("tab-flights")?.classList.add("active");
+            document
+              .getElementById("tab-content-flights")
+              ?.classList.add("active");
+
+            showSection("results");
+            resultsSection.scrollIntoView({
+              behavior: "smooth",
+              block: "start",
+            });
+          }, 800);
+        } else {
+          // Log normal - adiciona ao painel
+          addLogEntry(data);
+        }
+      } catch (e) {
+        console.error("Erro ao processar evento SSE:", e);
+      }
+    };
+
+    eventSource.onerror = (err) => {
+      console.error("Erro no SSE:", err);
+      eventSource.close();
+
+      // Tenta buscar resultado diretamente
+      fetch(`/api/result/${requestId}`)
+        .then((r) => r.json())
+        .then((result) => {
+          if (result.status !== "processing") {
+            finishAgentAnimation(result);
+            renderSummary(result);
+            renderCosts(result);
+            renderFlights(result.resultado?.passagens_aereas);
+            renderHotels(result.resultado?.hoteis);
+            renderItinerary(result.resultado?.roteiro_turistico);
+            renderAlerts(result);
+            showSection("results");
+          }
+        })
+        .catch((e) => console.error("Erro ao buscar resultado:", e));
+    };
   } catch (err) {
     console.error("Erro:", err);
     finishAgentAnimation(null);
@@ -718,9 +788,25 @@ window.addEventListener("DOMContentLoaded", () => {
   dataSaida?.addEventListener("change", () => {
     if (dataRetorno && dataSaida.value) {
       dataRetorno.min = dataSaida.value;
-      if (dataRetorno.value && dataRetorno.value <= dataSaida.value) {
-        dataRetorno.value = "";
-      }
     }
   });
 });
+
+// ── Log Entry Helper ──────────────────────────────────────
+function addLogEntry(data) {
+  const logEntry = document.createElement("div");
+  logEntry.className = `log-entry log-${data.level || "info"}`;
+
+  const time = new Date(data.timestamp).toLocaleTimeString("pt-BR");
+
+  logEntry.innerHTML = `
+    <span class="log-time">${time}</span>
+    <span class="log-agent">[${data.agent.toUpperCase()}]</span>
+    <span class="log-message">${data.message}</span>
+  `;
+
+  logsContainer.appendChild(logEntry);
+
+  // Auto-scroll para o final
+  logsContainer.scrollTop = logsContainer.scrollHeight;
+}

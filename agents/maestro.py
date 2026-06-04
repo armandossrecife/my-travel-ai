@@ -5,21 +5,29 @@ Responsável por: validar entradas, normalizar dados, acionar os agentes especia
 em paralelo, tratar falhas parciais e consolidar a resposta final conforme definido
 em skill.md e plano.md.
 """
+
+import concurrent.futures
+import uuid
 from datetime import date, datetime
 from typing import Optional
-import uuid
-import concurrent.futures
 
-from models import (
-    TravelRequest, TravelContext, TravelPreferences, AgentResult,
-    CostEstimation, IntegratedPlan, TravelPlan, ExecutionMetadata
-)
 from agents import aereo, hotel, turismo
-
+from agents.logger import event_logger, log_error, log_info, log_success, log_warning
+from models import (
+    AgentResult,
+    CostEstimation,
+    ExecutionMetadata,
+    IntegratedPlan,
+    TravelContext,
+    TravelPlan,
+    TravelPreferences,
+    TravelRequest,
+)
 
 # ──────────────────────────────────────────────────────────────
 # Validação e normalização
 # ──────────────────────────────────────────────────────────────
+
 
 def _validar_request(req: TravelRequest) -> list[str]:
     """Retorna lista de erros de validação."""
@@ -67,6 +75,7 @@ def _construir_contexto(req: TravelRequest, request_id: str) -> TravelContext:
 # Consolidação da resposta
 # ──────────────────────────────────────────────────────────────
 
+
 def _calcular_estimativa_custos(
     resultado_aereo: AgentResult,
     resultado_hotel: AgentResult,
@@ -112,9 +121,7 @@ def _calcular_estimativa_custos(
 
 def _gerar_recomendacao_geral(ctx: TravelContext, resultados: dict) -> str:
     """Gera um texto de recomendação consolidado."""
-    status_geral = all(
-        r.status == "sucesso" for r in resultados.values()
-    )
+    status_geral = all(r.status == "sucesso" for r in resultados.values())
     status_txt = "com sucesso" if status_geral else "parcialmente"
 
     passagens = resultados["aereo"].data.get("melhor_opcao_sugerida", {}) or {}
@@ -153,16 +160,23 @@ def _gerar_recomendacao_geral(ctx: TravelContext, resultados: dict) -> str:
 # Execução principal
 # ──────────────────────────────────────────────────────────────
 
-def run(req: TravelRequest) -> TravelPlan:
+
+def run(req: TravelRequest, request_id: str = None) -> TravelPlan:
     """
     Ponto de entrada do maestro.
     Valida, constrói contexto, executa agentes em paralelo e consolida.
     """
-    request_id = str(uuid.uuid4())
+    if request_id is None:
+        request_id = str(uuid.uuid4())
+
+    log_info(
+        request_id, "maestro", f"Iniciando processamento para {req.cidade_destino}"
+    )
 
     # 1. Validação
     erros_validacao = _validar_request(req)
     if erros_validacao:
+        log_error(request_id, "maestro", f"Validação falhou: {erros_validacao}")
         return TravelPlan(
             request_id=request_id,
             status="erro",
@@ -181,19 +195,36 @@ def run(req: TravelRequest) -> TravelPlan:
 
     # 2. Construção do contexto
     ctx = _construir_contexto(req, request_id)
+    log_info(
+        request_id,
+        "maestro",
+        f"Contexto construído. Viagem: {ctx.cidade_origem or 'N/A'} -> {ctx.cidade_destino}, {ctx.quantidade_dias} dias",
+    )
 
     # 3. Execução paralela dos agentes especialistas
     resultados: dict[str, AgentResult] = {}
+    log_info(
+        request_id,
+        "maestro",
+        "Iniciando execução paralela dos agentes especialistas...",
+    )
+
     with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
         futures = {
-            "aereo": executor.submit(aereo.run, ctx),
-            "hotel": executor.submit(hotel.run, ctx),
-            "turismo": executor.submit(turismo.run, ctx),
+            "aereo": executor.submit(aereo.run, ctx, request_id),
+            "hotel": executor.submit(hotel.run, ctx, request_id),
+            "turismo": executor.submit(turismo.run, ctx, request_id),
         }
         for nome, future in futures.items():
             try:
                 resultados[nome] = future.result(timeout=60)
+                log_success(
+                    request_id,
+                    "maestro",
+                    f"Agente {nome} concluído com status: {resultados[nome].status}",
+                )
             except Exception as e:
+                log_error(request_id, "maestro", f"Agente {nome} falhou: {str(e)}")
                 resultados[nome] = AgentResult(
                     agent_name=f"agente_{nome}",
                     status="erro",
@@ -211,6 +242,8 @@ def run(req: TravelRequest) -> TravelPlan:
     else:
         status_geral = "parcial"
 
+    log_info(request_id, "maestro", f"Status geral determinado: {status_geral}")
+
     # 5. Estimativa de custos e recomendação
     estimativa = _calcular_estimativa_custos(resultados["aereo"], resultados["hotel"])
     recomendacao = _gerar_recomendacao_geral(ctx, resultados)
@@ -225,6 +258,9 @@ def run(req: TravelRequest) -> TravelPlan:
         alertas_globais.extend(resultado.alertas)
 
     # 7. Resposta final
+    log_success(
+        request_id, "maestro", f"Processamento concluído. Status final: {status_geral}"
+    )
     return TravelPlan(
         request_id=request_id,
         status=status_geral,

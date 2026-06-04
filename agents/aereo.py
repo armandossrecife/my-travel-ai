@@ -5,13 +5,14 @@ Implementa a lógica de geração e ranking de opções de voos seguindo os cont
 definidos em skill.md e plano.md. Suporta engine LLM (Google Gemini) e engine
 de heurística local como fallback.
 """
-from datetime import date, timedelta, datetime
-from typing import List, Optional
-import os
+
 import json
+import os
+from datetime import date, datetime, timedelta
+from typing import List, Optional
 
-from models import TravelContext, AgentResult, FlightOption
-
+from agents.logger import log_error, log_info, log_success, log_warning
+from models import AgentResult, FlightOption, TravelContext
 
 # ──────────────────────────────────────────────────────────────
 # Base de conhecimento para heurística local
@@ -20,44 +21,188 @@ from models import TravelContext, AgentResult, FlightOption
 _CONHECIMENTO_AEREO = {
     # destino -> lista de dados por rota popular
     "lisboa": [
-        {"companhia": "TAP Air Portugal", "escalas": 0, "duracao": "9h00", "preco_base": 3200, "hub": "GRU"},
-        {"companhia": "LATAM Airlines", "escalas": 1, "duracao": "14h30", "preco_base": 2800, "hub": "GRU"},
-        {"companhia": "Iberia", "escalas": 1, "duracao": "15h00", "preco_base": 2600, "hub": "GRU"},
-        {"companhia": "Air Europa", "escalas": 1, "duracao": "16h00", "preco_base": 2400, "hub": "GRU"},
+        {
+            "companhia": "TAP Air Portugal",
+            "escalas": 0,
+            "duracao": "9h00",
+            "preco_base": 3200,
+            "hub": "GRU",
+        },
+        {
+            "companhia": "LATAM Airlines",
+            "escalas": 1,
+            "duracao": "14h30",
+            "preco_base": 2800,
+            "hub": "GRU",
+        },
+        {
+            "companhia": "Iberia",
+            "escalas": 1,
+            "duracao": "15h00",
+            "preco_base": 2600,
+            "hub": "GRU",
+        },
+        {
+            "companhia": "Air Europa",
+            "escalas": 1,
+            "duracao": "16h00",
+            "preco_base": 2400,
+            "hub": "GRU",
+        },
     ],
     "paris": [
-        {"companhia": "Air France", "escalas": 0, "duracao": "11h00", "preco_base": 3800, "hub": "GRU"},
-        {"companhia": "LATAM Airlines", "escalas": 1, "duracao": "15h00", "preco_base": 3200, "hub": "GRU"},
-        {"companhia": "Iberia", "escalas": 1, "duracao": "16h30", "preco_base": 3000, "hub": "GRU"},
+        {
+            "companhia": "Air France",
+            "escalas": 0,
+            "duracao": "11h00",
+            "preco_base": 3800,
+            "hub": "GRU",
+        },
+        {
+            "companhia": "LATAM Airlines",
+            "escalas": 1,
+            "duracao": "15h00",
+            "preco_base": 3200,
+            "hub": "GRU",
+        },
+        {
+            "companhia": "Iberia",
+            "escalas": 1,
+            "duracao": "16h30",
+            "preco_base": 3000,
+            "hub": "GRU",
+        },
     ],
     "nova york": [
-        {"companhia": "LATAM Airlines", "escalas": 0, "duracao": "10h00", "preco_base": 3500, "hub": "GRU"},
-        {"companhia": "American Airlines", "escalas": 0, "duracao": "10h30", "preco_base": 3600, "hub": "GRU"},
-        {"companhia": "Delta Airlines", "escalas": 1, "duracao": "14h00", "preco_base": 3100, "hub": "GRU"},
+        {
+            "companhia": "LATAM Airlines",
+            "escalas": 0,
+            "duracao": "10h00",
+            "preco_base": 3500,
+            "hub": "GRU",
+        },
+        {
+            "companhia": "American Airlines",
+            "escalas": 0,
+            "duracao": "10h30",
+            "preco_base": 3600,
+            "hub": "GRU",
+        },
+        {
+            "companhia": "Delta Airlines",
+            "escalas": 1,
+            "duracao": "14h00",
+            "preco_base": 3100,
+            "hub": "GRU",
+        },
     ],
     "miami": [
-        {"companhia": "LATAM Airlines", "escalas": 0, "duracao": "7h30", "preco_base": 2200, "hub": "GRU"},
-        {"companhia": "American Airlines", "escalas": 0, "duracao": "8h00", "preco_base": 2400, "hub": "GRU"},
-        {"companhia": "Gol", "escalas": 0, "duracao": "8h30", "preco_base": 2100, "hub": "GRU"},
+        {
+            "companhia": "LATAM Airlines",
+            "escalas": 0,
+            "duracao": "7h30",
+            "preco_base": 2200,
+            "hub": "GRU",
+        },
+        {
+            "companhia": "American Airlines",
+            "escalas": 0,
+            "duracao": "8h00",
+            "preco_base": 2400,
+            "hub": "GRU",
+        },
+        {
+            "companhia": "Gol",
+            "escalas": 0,
+            "duracao": "8h30",
+            "preco_base": 2100,
+            "hub": "GRU",
+        },
     ],
     "buenos aires": [
-        {"companhia": "LATAM Airlines", "escalas": 0, "duracao": "3h00", "preco_base": 900, "hub": "GRU"},
-        {"companhia": "Aerolíneas Argentinas", "escalas": 0, "duracao": "3h15", "preco_base": 850, "hub": "GRU"},
-        {"companhia": "Gol", "escalas": 0, "duracao": "3h30", "preco_base": 780, "hub": "GRU"},
+        {
+            "companhia": "LATAM Airlines",
+            "escalas": 0,
+            "duracao": "3h00",
+            "preco_base": 900,
+            "hub": "GRU",
+        },
+        {
+            "companhia": "Aerolíneas Argentinas",
+            "escalas": 0,
+            "duracao": "3h15",
+            "preco_base": 850,
+            "hub": "GRU",
+        },
+        {
+            "companhia": "Gol",
+            "escalas": 0,
+            "duracao": "3h30",
+            "preco_base": 780,
+            "hub": "GRU",
+        },
     ],
     "cancún": [
-        {"companhia": "LATAM Airlines", "escalas": 1, "duracao": "9h00", "preco_base": 2800, "hub": "GRU"},
-        {"companhia": "Avianca", "escalas": 1, "duracao": "10h00", "preco_base": 2500, "hub": "GRU"},
+        {
+            "companhia": "LATAM Airlines",
+            "escalas": 1,
+            "duracao": "9h00",
+            "preco_base": 2800,
+            "hub": "GRU",
+        },
+        {
+            "companhia": "Avianca",
+            "escalas": 1,
+            "duracao": "10h00",
+            "preco_base": 2500,
+            "hub": "GRU",
+        },
     ],
     "roma": [
-        {"companhia": "Alitalia / ITA Airways", "escalas": 0, "duracao": "12h00", "preco_base": 3700, "hub": "GRU"},
-        {"companhia": "LATAM Airlines", "escalas": 1, "duracao": "16h00", "preco_base": 3200, "hub": "GRU"},
-        {"companhia": "Iberia", "escalas": 1, "duracao": "15h00", "preco_base": 3100, "hub": "GRU"},
+        {
+            "companhia": "Alitalia / ITA Airways",
+            "escalas": 0,
+            "duracao": "12h00",
+            "preco_base": 3700,
+            "hub": "GRU",
+        },
+        {
+            "companhia": "LATAM Airlines",
+            "escalas": 1,
+            "duracao": "16h00",
+            "preco_base": 3200,
+            "hub": "GRU",
+        },
+        {
+            "companhia": "Iberia",
+            "escalas": 1,
+            "duracao": "15h00",
+            "preco_base": 3100,
+            "hub": "GRU",
+        },
     ],
     "default": [
-        {"companhia": "LATAM Airlines", "escalas": 1, "duracao": "12h00", "preco_base": 2500, "hub": "GRU"},
-        {"companhia": "Gol", "escalas": 1, "duracao": "13h00", "preco_base": 2200, "hub": "GRU"},
-        {"companhia": "Azul", "escalas": 1, "duracao": "11h30", "preco_base": 2300, "hub": "VCP"},
+        {
+            "companhia": "LATAM Airlines",
+            "escalas": 1,
+            "duracao": "12h00",
+            "preco_base": 2500,
+            "hub": "GRU",
+        },
+        {
+            "companhia": "Gol",
+            "escalas": 1,
+            "duracao": "13h00",
+            "preco_base": 2200,
+            "hub": "GRU",
+        },
+        {
+            "companhia": "Azul",
+            "escalas": 1,
+            "duracao": "11h30",
+            "preco_base": 2300,
+            "hub": "VCP",
+        },
     ],
 }
 
@@ -102,10 +247,10 @@ def _calcular_score_voo(voo: dict) -> float:
     nota_confianca = 0.8  # fonte heurística = 80% confiança
 
     score = (
-        0.40 * nota_preco +
-        0.25 * nota_duracao +
-        0.20 * nota_escalas +
-        0.15 * nota_confianca
+        0.40 * nota_preco
+        + 0.25 * nota_duracao
+        + 0.20 * nota_escalas
+        + 0.15 * nota_confianca
     )
     return round(score, 4)
 
@@ -122,7 +267,9 @@ def _gerar_opcoes_heuristica(ctx: TravelContext) -> List[FlightOption]:
 
     # Fator de demanda por temporada
     mes_saida = ctx.data_saida.month
-    fator_sazonalidade = 1.25 if mes_saida in [1, 7, 12] else (1.10 if mes_saida in [6, 8, 11] else 1.0)
+    fator_sazonalidade = (
+        1.25 if mes_saida in [1, 7, 12] else (1.10 if mes_saida in [6, 8, 11] else 1.0)
+    )
 
     opcoes: List[FlightOption] = []
     precos = [d["preco_base"] * fator_sazonalidade for d in dados_rotas]
@@ -135,20 +282,22 @@ def _gerar_opcoes_heuristica(ctx: TravelContext) -> List[FlightOption]:
         dado["preco_ref_max"] = preco_max
         score = _calcular_score_voo(dado)
 
-        opcoes.append(FlightOption(
-            companhia=dado["companhia"],
-            origem=f"{origem} ({sigla_hub})",
-            destino=ctx.cidade_destino,
-            data_ida=ctx.data_saida,
-            data_volta=ctx.data_retorno,
-            preco_estimado=preco_final,
-            moeda="BRL",
-            duracao_estimada=dado["duracao"],
-            escalas=dado["escalas"],
-            link_consulta=None,
-            observacoes="Estimativa baseada em heurística. Confirme valores em sites oficiais.",
-            score=score,
-        ))
+        opcoes.append(
+            FlightOption(
+                companhia=dado["companhia"],
+                origem=f"{origem} ({sigla_hub})",
+                destino=ctx.cidade_destino,
+                data_ida=ctx.data_saida,
+                data_volta=ctx.data_retorno,
+                preco_estimado=preco_final,
+                moeda="BRL",
+                duracao_estimada=dado["duracao"],
+                escalas=dado["escalas"],
+                link_consulta=None,
+                observacoes="Estimativa baseada em heurística. Confirme valores em sites oficiais.",
+                score=score,
+            )
+        )
 
     # Ordena por score descrescente
     opcoes.sort(key=lambda x: x.score, reverse=True)
@@ -159,6 +308,7 @@ def _gerar_opcoes_llm(ctx: TravelContext) -> List[FlightOption]:
     """Gera opções de passagens aéreas usando LLM (Google Gemini)."""
     try:
         from google import genai
+
         api_key = os.environ.get("GEMINI_API_KEY", "")
         if not api_key:
             raise ValueError("GEMINI_API_KEY não configurada.")
@@ -168,7 +318,7 @@ def _gerar_opcoes_llm(ctx: TravelContext) -> List[FlightOption]:
         prompt = f"""Você é o agente_aereo, especialista em passagens aéreas.
 
 Dados da viagem:
-- Cidade origem: {ctx.cidade_origem or 'Não informada (assumir São Paulo/GRU)'}
+- Cidade origem: {ctx.cidade_origem or "Não informada (assumir São Paulo/GRU)"}
 - Cidade destino: {ctx.cidade_destino}
 - Data de saída: {ctx.data_saida}
 - Data de retorno: {ctx.data_retorno}
@@ -201,7 +351,8 @@ REGRAS OBRIGATÓRIAS:
 - NÃO afirme disponibilidade garantida.
 """
         response = client.models.generate_content(
-            model="gemini-3.5-flash",
+            # model="gemini-3.5-flash",
+            model="gemini-3.1-flash-lite",
             contents=prompt,
         )
         raw = response.text.strip()
@@ -222,10 +373,22 @@ REGRAS OBRIGATÓRIAS:
         return _gerar_opcoes_heuristica(ctx)
 
 
-def run(ctx: TravelContext) -> AgentResult:
+def run(ctx: TravelContext, request_id: str = None) -> AgentResult:
     """Ponto de entrada do agente_aereo."""
     try:
+        log_info(
+            request_id, "aereo", f"Iniciando busca de voos para {ctx.cidade_destino}"
+        )
         use_llm = bool(os.environ.get("GEMINI_API_KEY", ""))
+        if use_llm:
+            log_info(
+                request_id, "aereo", "Usando engine LLM (Gemini) para busca de voos"
+            )
+        else:
+            log_info(
+                request_id, "aereo", "Usando engine heurística local para busca de voos"
+            )
+
         opcoes = _gerar_opcoes_llm(ctx) if use_llm else _gerar_opcoes_heuristica(ctx)
 
         melhor = opcoes[0] if opcoes else None
@@ -238,7 +401,7 @@ def run(ctx: TravelContext) -> AgentResult:
                 "escalas": melhor.escalas,
                 "criterio": ctx.preferencias.preferencia_voo,
                 "justificativa": f"Melhor equilíbrio entre preço (R$ {melhor.preco_estimado:,.2f}), "
-                                 f"duração ({melhor.duracao_estimada}) e {melhor.escalas} escala(s).",
+                f"duração ({melhor.duracao_estimada}) e {melhor.escalas} escala(s).",
             }
 
         return AgentResult(
@@ -251,13 +414,21 @@ def run(ctx: TravelContext) -> AgentResult:
                     "Preços são estimativas e variam rapidamente.",
                     "Confirme disponibilidade e valores em sites oficiais ou agências.",
                     "Tarifas de bagagem e taxas não estão incluídas.",
-                ] + (["Cidade de origem não informada. Assumindo partida de São Paulo (GRU)."]
-                     if not ctx.cidade_origem else []),
+                ]
+                + (
+                    [
+                        "Cidade de origem não informada. Assumindo partida de São Paulo (GRU)."
+                    ]
+                    if not ctx.cidade_origem
+                    else []
+                ),
             },
             alertas=[
                 "⚠️ Valores são estimativas geradas por IA. Confirme antes de comprar.",
             ],
-            fontes=["Heurística local baseada em dados históricos de rotas"] if not os.environ.get("GEMINI_API_KEY") else ["Google Gemini LLM"],
+            fontes=["Heurística local baseada em dados históricos de rotas"]
+            if not os.environ.get("GEMINI_API_KEY")
+            else ["Google Gemini LLM"],
         )
 
     except Exception as e:

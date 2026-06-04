@@ -45,4 +45,4 @@ echo ""
 echo "   Pressione Ctrl+C para encerrar."
 echo ""
 
-uv run uvicorn main:app --host 127.0.0.1 --port 8000 --reload
+uv run uvicorn main:app --host 0.0.0.0 --port 8000

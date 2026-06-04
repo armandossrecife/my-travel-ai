@@ -5,13 +5,14 @@ Implementa a lógica de geração de itinerários diários baseados na cidade de
 período de viagem e interesses do usuário. Suporta engine LLM (Google Gemini) e
 engine de heurística local como fallback.
 """
-from datetime import date, timedelta, datetime
-from typing import List, Dict
-import os
+
 import json
+import os
+from datetime import date, datetime, timedelta
+from typing import Dict, List
 
-from models import TravelContext, AgentResult, DailyItinerary, TouristAttraction
-
+from agents.logger import log_error, log_info, log_success, log_warning
+from models import AgentResult, DailyItinerary, TouristAttraction, TravelContext
 
 # ──────────────────────────────────────────────────────────────
 # Base de conhecimento turístico
@@ -19,71 +20,389 @@ from models import TravelContext, AgentResult, DailyItinerary, TouristAttraction
 
 _PONTOS_TURISTICOS = {
     "lisboa": [
-        {"nome": "Torre de Belém", "categoria": "histórico", "bairro": "Belém", "tempo": "1h30", "prioridade": 1},
-        {"nome": "Mosteiro dos Jerónimos", "categoria": "histórico", "bairro": "Belém", "tempo": "2h00", "prioridade": 2},
-        {"nome": "Museu Nacional do Azulejo", "categoria": "cultural", "bairro": "Santa Apolónia", "tempo": "2h00", "prioridade": 3},
-        {"nome": "Alfama e Castelo de São Jorge", "categoria": "histórico", "bairro": "Alfama", "tempo": "3h00", "prioridade": 4},
-        {"nome": "Praça do Comércio", "categoria": "cultural", "bairro": "Baixa", "tempo": "1h00", "prioridade": 5},
-        {"nome": "Parque das Nações", "categoria": "entretenimento", "bairro": "Parque das Nações", "tempo": "3h00", "prioridade": 6},
-        {"nome": "Bairro Alto & Chiado", "categoria": "gastronômico", "bairro": "Chiado", "tempo": "2h00", "prioridade": 7},
-        {"nome": "LX Factory", "categoria": "cultural", "bairro": "Alcântara", "tempo": "2h00", "prioridade": 8},
-        {"nome": "Palácio Nacional de Sintra", "categoria": "histórico", "bairro": "Sintra (excursão)", "tempo": "4h00", "prioridade": 9},
-        {"nome": "Cabo da Roca", "categoria": "natureza", "bairro": "Sintra (excursão)", "tempo": "1h30", "prioridade": 10},
+        {
+            "nome": "Torre de Belém",
+            "categoria": "histórico",
+            "bairro": "Belém",
+            "tempo": "1h30",
+            "prioridade": 1,
+        },
+        {
+            "nome": "Mosteiro dos Jerónimos",
+            "categoria": "histórico",
+            "bairro": "Belém",
+            "tempo": "2h00",
+            "prioridade": 2,
+        },
+        {
+            "nome": "Museu Nacional do Azulejo",
+            "categoria": "cultural",
+            "bairro": "Santa Apolónia",
+            "tempo": "2h00",
+            "prioridade": 3,
+        },
+        {
+            "nome": "Alfama e Castelo de São Jorge",
+            "categoria": "histórico",
+            "bairro": "Alfama",
+            "tempo": "3h00",
+            "prioridade": 4,
+        },
+        {
+            "nome": "Praça do Comércio",
+            "categoria": "cultural",
+            "bairro": "Baixa",
+            "tempo": "1h00",
+            "prioridade": 5,
+        },
+        {
+            "nome": "Parque das Nações",
+            "categoria": "entretenimento",
+            "bairro": "Parque das Nações",
+            "tempo": "3h00",
+            "prioridade": 6,
+        },
+        {
+            "nome": "Bairro Alto & Chiado",
+            "categoria": "gastronômico",
+            "bairro": "Chiado",
+            "tempo": "2h00",
+            "prioridade": 7,
+        },
+        {
+            "nome": "LX Factory",
+            "categoria": "cultural",
+            "bairro": "Alcântara",
+            "tempo": "2h00",
+            "prioridade": 8,
+        },
+        {
+            "nome": "Palácio Nacional de Sintra",
+            "categoria": "histórico",
+            "bairro": "Sintra (excursão)",
+            "tempo": "4h00",
+            "prioridade": 9,
+        },
+        {
+            "nome": "Cabo da Roca",
+            "categoria": "natureza",
+            "bairro": "Sintra (excursão)",
+            "tempo": "1h30",
+            "prioridade": 10,
+        },
     ],
     "paris": [
-        {"nome": "Torre Eiffel", "categoria": "histórico", "bairro": "Champ-de-Mars", "tempo": "2h00", "prioridade": 1},
-        {"nome": "Museu do Louvre", "categoria": "cultural", "bairro": "1er arrondissement", "tempo": "4h00", "prioridade": 2},
-        {"nome": "Notre-Dame de Paris", "categoria": "religioso", "bairro": "Île de la Cité", "tempo": "1h30", "prioridade": 3},
-        {"nome": "Musée d'Orsay", "categoria": "cultural", "bairro": "7e arrondissement", "tempo": "3h00", "prioridade": 4},
-        {"nome": "Arc de Triomphe & Champs-Élysées", "categoria": "histórico", "bairro": "8e arrondissement", "tempo": "2h00", "prioridade": 5},
-        {"nome": "Montmartre & Sacré-Cœur", "categoria": "cultural", "bairro": "Montmartre", "tempo": "2h30", "prioridade": 6},
-        {"nome": "Palácio de Versalhes", "categoria": "histórico", "bairro": "Versalhes (excursão)", "tempo": "5h00", "prioridade": 7},
-        {"nome": "Le Marais", "categoria": "gastronômico", "bairro": "Le Marais", "tempo": "2h00", "prioridade": 8},
+        {
+            "nome": "Torre Eiffel",
+            "categoria": "histórico",
+            "bairro": "Champ-de-Mars",
+            "tempo": "2h00",
+            "prioridade": 1,
+        },
+        {
+            "nome": "Museu do Louvre",
+            "categoria": "cultural",
+            "bairro": "1er arrondissement",
+            "tempo": "4h00",
+            "prioridade": 2,
+        },
+        {
+            "nome": "Notre-Dame de Paris",
+            "categoria": "religioso",
+            "bairro": "Île de la Cité",
+            "tempo": "1h30",
+            "prioridade": 3,
+        },
+        {
+            "nome": "Musée d'Orsay",
+            "categoria": "cultural",
+            "bairro": "7e arrondissement",
+            "tempo": "3h00",
+            "prioridade": 4,
+        },
+        {
+            "nome": "Arc de Triomphe & Champs-Élysées",
+            "categoria": "histórico",
+            "bairro": "8e arrondissement",
+            "tempo": "2h00",
+            "prioridade": 5,
+        },
+        {
+            "nome": "Montmartre & Sacré-Cœur",
+            "categoria": "cultural",
+            "bairro": "Montmartre",
+            "tempo": "2h30",
+            "prioridade": 6,
+        },
+        {
+            "nome": "Palácio de Versalhes",
+            "categoria": "histórico",
+            "bairro": "Versalhes (excursão)",
+            "tempo": "5h00",
+            "prioridade": 7,
+        },
+        {
+            "nome": "Le Marais",
+            "categoria": "gastronômico",
+            "bairro": "Le Marais",
+            "tempo": "2h00",
+            "prioridade": 8,
+        },
     ],
     "nova york": [
-        {"nome": "Estátua da Liberdade & Ellis Island", "categoria": "histórico", "bairro": "Liberty Island", "tempo": "4h00", "prioridade": 1},
-        {"nome": "Central Park", "categoria": "natureza", "bairro": "Midtown", "tempo": "2h00", "prioridade": 2},
-        {"nome": "Times Square", "categoria": "entretenimento", "bairro": "Midtown", "tempo": "1h00", "prioridade": 3},
-        {"nome": "Metropolitan Museum of Art", "categoria": "cultural", "bairro": "Upper East Side", "tempo": "3h00", "prioridade": 4},
-        {"nome": "Empire State Building", "categoria": "histórico", "bairro": "Midtown", "tempo": "2h00", "prioridade": 5},
-        {"nome": "Brooklyn Bridge & DUMBO", "categoria": "histórico", "bairro": "Brooklyn", "tempo": "2h00", "prioridade": 6},
-        {"nome": "High Line", "categoria": "cultural", "bairro": "Chelsea", "tempo": "1h30", "prioridade": 7},
-        {"nome": "9/11 Memorial & Museum", "categoria": "histórico", "bairro": "Financial District", "tempo": "2h30", "prioridade": 8},
+        {
+            "nome": "Estátua da Liberdade & Ellis Island",
+            "categoria": "histórico",
+            "bairro": "Liberty Island",
+            "tempo": "4h00",
+            "prioridade": 1,
+        },
+        {
+            "nome": "Central Park",
+            "categoria": "natureza",
+            "bairro": "Midtown",
+            "tempo": "2h00",
+            "prioridade": 2,
+        },
+        {
+            "nome": "Times Square",
+            "categoria": "entretenimento",
+            "bairro": "Midtown",
+            "tempo": "1h00",
+            "prioridade": 3,
+        },
+        {
+            "nome": "Metropolitan Museum of Art",
+            "categoria": "cultural",
+            "bairro": "Upper East Side",
+            "tempo": "3h00",
+            "prioridade": 4,
+        },
+        {
+            "nome": "Empire State Building",
+            "categoria": "histórico",
+            "bairro": "Midtown",
+            "tempo": "2h00",
+            "prioridade": 5,
+        },
+        {
+            "nome": "Brooklyn Bridge & DUMBO",
+            "categoria": "histórico",
+            "bairro": "Brooklyn",
+            "tempo": "2h00",
+            "prioridade": 6,
+        },
+        {
+            "nome": "High Line",
+            "categoria": "cultural",
+            "bairro": "Chelsea",
+            "tempo": "1h30",
+            "prioridade": 7,
+        },
+        {
+            "nome": "9/11 Memorial & Museum",
+            "categoria": "histórico",
+            "bairro": "Financial District",
+            "tempo": "2h30",
+            "prioridade": 8,
+        },
     ],
     "miami": [
-        {"nome": "South Beach & Ocean Drive", "categoria": "natureza", "bairro": "South Beach", "tempo": "3h00", "prioridade": 1},
-        {"nome": "Art Deco Historic District", "categoria": "histórico", "bairro": "South Beach", "tempo": "2h00", "prioridade": 2},
-        {"nome": "Wynwood Walls", "categoria": "cultural", "bairro": "Wynwood", "tempo": "2h00", "prioridade": 3},
-        {"nome": "Vizcaya Museum & Gardens", "categoria": "histórico", "bairro": "Coconut Grove", "tempo": "2h30", "prioridade": 4},
-        {"nome": "Little Havana", "categoria": "gastronômico", "bairro": "Little Havana", "tempo": "2h00", "prioridade": 5},
-        {"nome": "Everglades National Park", "categoria": "natureza", "bairro": "Everglades (excursão)", "tempo": "6h00", "prioridade": 6},
+        {
+            "nome": "South Beach & Ocean Drive",
+            "categoria": "natureza",
+            "bairro": "South Beach",
+            "tempo": "3h00",
+            "prioridade": 1,
+        },
+        {
+            "nome": "Art Deco Historic District",
+            "categoria": "histórico",
+            "bairro": "South Beach",
+            "tempo": "2h00",
+            "prioridade": 2,
+        },
+        {
+            "nome": "Wynwood Walls",
+            "categoria": "cultural",
+            "bairro": "Wynwood",
+            "tempo": "2h00",
+            "prioridade": 3,
+        },
+        {
+            "nome": "Vizcaya Museum & Gardens",
+            "categoria": "histórico",
+            "bairro": "Coconut Grove",
+            "tempo": "2h30",
+            "prioridade": 4,
+        },
+        {
+            "nome": "Little Havana",
+            "categoria": "gastronômico",
+            "bairro": "Little Havana",
+            "tempo": "2h00",
+            "prioridade": 5,
+        },
+        {
+            "nome": "Everglades National Park",
+            "categoria": "natureza",
+            "bairro": "Everglades (excursão)",
+            "tempo": "6h00",
+            "prioridade": 6,
+        },
     ],
     "buenos aires": [
-        {"nome": "La Boca & Caminito", "categoria": "cultural", "bairro": "La Boca", "tempo": "2h00", "prioridade": 1},
-        {"nome": "San Telmo & Feira Antigos", "categoria": "cultural", "bairro": "San Telmo", "tempo": "2h30", "prioridade": 2},
-        {"nome": "Palácio do Congresso", "categoria": "histórico", "bairro": "Balvanera", "tempo": "1h30", "prioridade": 3},
-        {"nome": "Recoleta Cemetery", "categoria": "histórico", "bairro": "Recoleta", "tempo": "1h30", "prioridade": 4},
-        {"nome": "MALBA - Museu de Arte Latino-Americana", "categoria": "cultural", "bairro": "Palermo", "tempo": "2h00", "prioridade": 5},
-        {"nome": "Puerto Madero", "categoria": "gastronômico", "bairro": "Puerto Madero", "tempo": "2h00", "prioridade": 6},
-        {"nome": "Tango Show em San Telmo", "categoria": "entretenimento", "bairro": "San Telmo", "tempo": "2h30", "prioridade": 7},
+        {
+            "nome": "La Boca & Caminito",
+            "categoria": "cultural",
+            "bairro": "La Boca",
+            "tempo": "2h00",
+            "prioridade": 1,
+        },
+        {
+            "nome": "San Telmo & Feira Antigos",
+            "categoria": "cultural",
+            "bairro": "San Telmo",
+            "tempo": "2h30",
+            "prioridade": 2,
+        },
+        {
+            "nome": "Palácio do Congresso",
+            "categoria": "histórico",
+            "bairro": "Balvanera",
+            "tempo": "1h30",
+            "prioridade": 3,
+        },
+        {
+            "nome": "Recoleta Cemetery",
+            "categoria": "histórico",
+            "bairro": "Recoleta",
+            "tempo": "1h30",
+            "prioridade": 4,
+        },
+        {
+            "nome": "MALBA - Museu de Arte Latino-Americana",
+            "categoria": "cultural",
+            "bairro": "Palermo",
+            "tempo": "2h00",
+            "prioridade": 5,
+        },
+        {
+            "nome": "Puerto Madero",
+            "categoria": "gastronômico",
+            "bairro": "Puerto Madero",
+            "tempo": "2h00",
+            "prioridade": 6,
+        },
+        {
+            "nome": "Tango Show em San Telmo",
+            "categoria": "entretenimento",
+            "bairro": "San Telmo",
+            "tempo": "2h30",
+            "prioridade": 7,
+        },
     ],
     "roma": [
-        {"nome": "Coliseu e Fórum Romano", "categoria": "histórico", "bairro": "Centro Storico", "tempo": "3h00", "prioridade": 1},
-        {"nome": "Vaticano e Capela Sistina", "categoria": "religioso", "bairro": "Prati", "tempo": "4h00", "prioridade": 2},
-        {"nome": "Fontana di Trevi", "categoria": "histórico", "bairro": "Trevi", "tempo": "1h00", "prioridade": 3},
-        {"nome": "Panthéon", "categoria": "histórico", "bairro": "Pigna", "tempo": "1h30", "prioridade": 4},
-        {"nome": "Piazza Navona", "categoria": "cultural", "bairro": "Parione", "tempo": "1h00", "prioridade": 5},
-        {"nome": "Trastevere", "categoria": "gastronômico", "bairro": "Trastevere", "tempo": "2h30", "prioridade": 6},
-        {"nome": "Galeria Borghese", "categoria": "cultural", "bairro": "Villa Borghese", "tempo": "2h00", "prioridade": 7},
-        {"nome": "Castelo Sant'Angelo", "categoria": "histórico", "bairro": "Borgo", "tempo": "2h00", "prioridade": 8},
+        {
+            "nome": "Coliseu e Fórum Romano",
+            "categoria": "histórico",
+            "bairro": "Centro Storico",
+            "tempo": "3h00",
+            "prioridade": 1,
+        },
+        {
+            "nome": "Vaticano e Capela Sistina",
+            "categoria": "religioso",
+            "bairro": "Prati",
+            "tempo": "4h00",
+            "prioridade": 2,
+        },
+        {
+            "nome": "Fontana di Trevi",
+            "categoria": "histórico",
+            "bairro": "Trevi",
+            "tempo": "1h00",
+            "prioridade": 3,
+        },
+        {
+            "nome": "Panthéon",
+            "categoria": "histórico",
+            "bairro": "Pigna",
+            "tempo": "1h30",
+            "prioridade": 4,
+        },
+        {
+            "nome": "Piazza Navona",
+            "categoria": "cultural",
+            "bairro": "Parione",
+            "tempo": "1h00",
+            "prioridade": 5,
+        },
+        {
+            "nome": "Trastevere",
+            "categoria": "gastronômico",
+            "bairro": "Trastevere",
+            "tempo": "2h30",
+            "prioridade": 6,
+        },
+        {
+            "nome": "Galeria Borghese",
+            "categoria": "cultural",
+            "bairro": "Villa Borghese",
+            "tempo": "2h00",
+            "prioridade": 7,
+        },
+        {
+            "nome": "Castelo Sant'Angelo",
+            "categoria": "histórico",
+            "bairro": "Borgo",
+            "tempo": "2h00",
+            "prioridade": 8,
+        },
     ],
     "default": [
-        {"nome": "Centro Histórico da Cidade", "categoria": "histórico", "bairro": "Centro", "tempo": "2h00", "prioridade": 1},
-        {"nome": "Museu Municipal Principal", "categoria": "cultural", "bairro": "Centro", "tempo": "2h00", "prioridade": 2},
-        {"nome": "Mercado e Gastronomia Local", "categoria": "gastronômico", "bairro": "Centro", "tempo": "1h30", "prioridade": 3},
-        {"nome": "Parque ou Área Verde Principal", "categoria": "natureza", "bairro": "Área central", "tempo": "1h30", "prioridade": 4},
-        {"nome": "Mirante ou Vista Panorâmica", "categoria": "cultural", "bairro": "Ponto alto", "tempo": "1h00", "prioridade": 5},
-        {"nome": "Bairro Artístico e Cultural", "categoria": "cultural", "bairro": "Bairro Artístico", "tempo": "2h00", "prioridade": 6},
+        {
+            "nome": "Centro Histórico da Cidade",
+            "categoria": "histórico",
+            "bairro": "Centro",
+            "tempo": "2h00",
+            "prioridade": 1,
+        },
+        {
+            "nome": "Museu Municipal Principal",
+            "categoria": "cultural",
+            "bairro": "Centro",
+            "tempo": "2h00",
+            "prioridade": 2,
+        },
+        {
+            "nome": "Mercado e Gastronomia Local",
+            "categoria": "gastronômico",
+            "bairro": "Centro",
+            "tempo": "1h30",
+            "prioridade": 3,
+        },
+        {
+            "nome": "Parque ou Área Verde Principal",
+            "categoria": "natureza",
+            "bairro": "Área central",
+            "tempo": "1h30",
+            "prioridade": 4,
+        },
+        {
+            "nome": "Mirante ou Vista Panorâmica",
+            "categoria": "cultural",
+            "bairro": "Ponto alto",
+            "tempo": "1h00",
+            "prioridade": 5,
+        },
+        {
+            "nome": "Bairro Artístico e Cultural",
+            "categoria": "cultural",
+            "bairro": "Bairro Artístico",
+            "tempo": "2h00",
+            "prioridade": 6,
+        },
     ],
 }
 
@@ -128,14 +447,18 @@ def _gerar_roteiro_heuristica(ctx: TravelContext) -> dict:
     # Cria os objetos de atração
     atracoes = []
     for p in pontos:
-        atracoes.append(TouristAttraction(
-            nome=p["nome"],
-            categoria=p["categoria"],
-            bairro=p["bairro"],
-            tempo_estimado_visita=p["tempo"],
-            prioridade=p["prioridade"],
-            observacoes=["Confirme horários e valores de ingressos no site oficial."],
-        ))
+        atracoes.append(
+            TouristAttraction(
+                nome=p["nome"],
+                categoria=p["categoria"],
+                bairro=p["bairro"],
+                tempo_estimado_visita=p["tempo"],
+                prioridade=p["prioridade"],
+                observacoes=[
+                    "Confirme horários e valores de ingressos no site oficial."
+                ],
+            )
+        )
 
     # Constrói roteiro diário
     roteiro: List[DailyItinerary] = []
@@ -144,27 +467,41 @@ def _gerar_roteiro_heuristica(ctx: TravelContext) -> dict:
     total_dias = ctx.quantidade_dias
 
     for dia_num in range(1, total_dias + 1):
-        is_chegada = (dia_num == 1)
-        is_retorno = (dia_num == total_dias)
+        is_chegada = dia_num == 1
+        is_retorno = dia_num == total_dias
 
         if is_chegada:
-            manha = ["Chegada ao aeroporto", "Deslocamento e check-in no hotel", "Descanso após a viagem"]
+            manha = [
+                "Chegada ao aeroporto",
+                "Deslocamento e check-in no hotel",
+                "Descanso após a viagem",
+            ]
             tarde = ["Passeio leve pelo bairro do hotel", "Conhecer os arredores"]
-            noite = ["Jantar em restaurante próximo ao hotel", "Adaptação ao fuso horário (se houver)"]
+            noite = [
+                "Jantar em restaurante próximo ao hotel",
+                "Adaptação ao fuso horário (se houver)",
+            ]
             tema = "Chegada e adaptação"
-            obs = ["Evite agenda intensa no dia de chegada.", "Hidrate-se bem após o voo."]
+            obs = [
+                "Evite agenda intensa no dia de chegada.",
+                "Hidrate-se bem após o voo.",
+            ]
 
         elif is_retorno:
             manha = ["Café da manhã no hotel", "Últimas compras e souvenirs"]
             tarde = ["Check-out do hotel", "Deslocamento ao aeroporto"]
             noite = ["Embarque de retorno"]
             tema = "Retorno para casa"
-            obs = ["Chegue ao aeroporto com pelo menos 3h de antecedência para voos internacionais."]
+            obs = [
+                "Chegue ao aeroporto com pelo menos 3h de antecedência para voos internacionais."
+            ]
 
         else:
             # Distribui 2-3 atrações por dia dependendo do ritmo
             ritmo = ctx.preferencias.ritmo_roteiro
-            atracoes_por_dia = 3 if ritmo == "intenso" else (2 if ritmo == "moderado" else 1)
+            atracoes_por_dia = (
+                3 if ritmo == "intenso" else (2 if ritmo == "moderado" else 1)
+            )
 
             atr_dia = []
             for _ in range(atracoes_por_dia):
@@ -173,18 +510,31 @@ def _gerar_roteiro_heuristica(ctx: TravelContext) -> dict:
                     idx_atracao += 1
 
             if len(atr_dia) >= 3:
-                manha = [f"Visita: {atr_dia[0].nome} ({atr_dia[0].bairro}) — ~{atr_dia[0].tempo_estimado_visita}"]
-                tarde = [f"Visita: {atr_dia[1].nome} ({atr_dia[1].bairro}) — ~{atr_dia[1].tempo_estimado_visita}",
-                         f"Explorar: {atr_dia[2].nome}" if len(atr_dia) > 2 else "Tempo livre"]
+                manha = [
+                    f"Visita: {atr_dia[0].nome} ({atr_dia[0].bairro}) — ~{atr_dia[0].tempo_estimado_visita}"
+                ]
+                tarde = [
+                    f"Visita: {atr_dia[1].nome} ({atr_dia[1].bairro}) — ~{atr_dia[1].tempo_estimado_visita}",
+                    f"Explorar: {atr_dia[2].nome}"
+                    if len(atr_dia) > 2
+                    else "Tempo livre",
+                ]
                 noite = ["Jantar local", "Explorar a vida noturna do bairro"]
                 tema = f"Dia {dia_num - 1}: {' e '.join(a.nome for a in atr_dia[:2])}"
             elif len(atr_dia) == 2:
-                manha = [f"Visita: {atr_dia[0].nome} ({atr_dia[0].bairro}) — ~{atr_dia[0].tempo_estimado_visita}"]
-                tarde = [f"Visita: {atr_dia[1].nome} ({atr_dia[1].bairro}) — ~{atr_dia[1].tempo_estimado_visita}", "Café/lanche local"]
+                manha = [
+                    f"Visita: {atr_dia[0].nome} ({atr_dia[0].bairro}) — ~{atr_dia[0].tempo_estimado_visita}"
+                ]
+                tarde = [
+                    f"Visita: {atr_dia[1].nome} ({atr_dia[1].bairro}) — ~{atr_dia[1].tempo_estimado_visita}",
+                    "Café/lanche local",
+                ]
                 noite = ["Jantar no bairro", "Passeio noturno"]
                 tema = f"Dia {dia_num - 1}: {atr_dia[0].nome}"
             elif len(atr_dia) == 1:
-                manha = [f"Visita: {atr_dia[0].nome} ({atr_dia[0].bairro}) — ~{atr_dia[0].tempo_estimado_visita}"]
+                manha = [
+                    f"Visita: {atr_dia[0].nome} ({atr_dia[0].bairro}) — ~{atr_dia[0].tempo_estimado_visita}"
+                ]
                 tarde = ["Tempo livre para explorar", "Compras e gastronomia local"]
                 noite = ["Jantar em restaurante escolhido", "Tempo livre"]
                 tema = f"Dia {dia_num - 1}: {atr_dia[0].nome}"
@@ -194,17 +544,22 @@ def _gerar_roteiro_heuristica(ctx: TravelContext) -> dict:
                 noite = ["Jantar especial", "Passeio noturno"]
                 tema = f"Dia {dia_num - 1}: Exploração livre"
 
-            obs = ["Confirme horários de funcionamento antes de visitar.", "Atrações próximas foram agrupadas para economizar deslocamento."]
+            obs = [
+                "Confirme horários de funcionamento antes de visitar.",
+                "Atrações próximas foram agrupadas para economizar deslocamento.",
+            ]
 
-        roteiro.append(DailyItinerary(
-            dia=dia_num,
-            data=data_atual,
-            tema=tema,
-            manha=manha,
-            tarde=tarde,
-            noite=noite,
-            observacoes=obs,
-        ))
+        roteiro.append(
+            DailyItinerary(
+                dia=dia_num,
+                data=data_atual,
+                tema=tema,
+                manha=manha,
+                tarde=tarde,
+                noite=noite,
+                observacoes=obs,
+            )
+        )
         data_atual = data_atual + timedelta(days=1)
 
     return {
@@ -222,6 +577,7 @@ def _gerar_roteiro_llm(ctx: TravelContext) -> dict:
     """Gera roteiro turístico usando LLM (Google Gemini)."""
     try:
         from google import genai
+
         api_key = os.environ.get("GEMINI_API_KEY", "")
         if not api_key:
             raise ValueError("GEMINI_API_KEY não configurada.")
@@ -235,7 +591,7 @@ Dados da viagem:
 - Data de saída: {ctx.data_saida}
 - Data de retorno: {ctx.data_retorno}
 - Quantidade de dias: {ctx.quantidade_dias}
-- Interesses: {', '.join(ctx.preferencias.interesses) if ctx.preferencias.interesses else 'geral'}
+- Interesses: {", ".join(ctx.preferencias.interesses) if ctx.preferencias.interesses else "geral"}
 - Ritmo: {ctx.preferencias.ritmo_roteiro}
 
 Gere um JSON com as chaves:
@@ -266,7 +622,11 @@ Responda SOMENTE com JSON puro, sem markdown, no formato:
 
 REGRAS: Atrações reais, roteiro realista, {ctx.quantidade_dias} dias exatos.
 """
-        response = client.models.generate_content(model="gemini-3.5-flash", contents=prompt)
+        response = client.models.generate_content(
+            # model="gemini-3.5-flash",
+            model="gemini-3.1-flash-lite",
+            contents=prompt,
+        )
         raw = response.text.strip()
         if raw.startswith("```"):
             raw = raw.split("```")[1]
@@ -296,11 +656,31 @@ REGRAS: Atrações reais, roteiro realista, {ctx.quantidade_dias} dias exatos.
         return _gerar_roteiro_heuristica(ctx)
 
 
-def run(ctx: TravelContext) -> AgentResult:
+def run(ctx: TravelContext, request_id: str = None) -> AgentResult:
     """Ponto de entrada do agente_turismo."""
     try:
+        log_info(
+            request_id,
+            "turismo",
+            f"Iniciando criação do roteiro turístico para {ctx.cidade_destino}",
+        )
         use_llm = bool(os.environ.get("GEMINI_API_KEY", ""))
-        resultado = _gerar_roteiro_llm(ctx) if use_llm else _gerar_roteiro_heuristica(ctx)
+        if use_llm:
+            log_info(
+                request_id,
+                "turismo",
+                "Usando engine LLM (Gemini) para roteiro turístico",
+            )
+        else:
+            log_info(
+                request_id,
+                "turismo",
+                "Usando engine heurística local para roteiro turístico",
+            )
+
+        resultado = (
+            _gerar_roteiro_llm(ctx) if use_llm else _gerar_roteiro_heuristica(ctx)
+        )
 
         # Serializa os objetos Pydantic
         pontos = resultado["pontos_turisticos_prioritarios"]
@@ -331,7 +711,9 @@ def run(ctx: TravelContext) -> AgentResult:
                 "⚠️ Confirme horários de funcionamento antes de visitar.",
                 "⚠️ Compre ingressos antecipados para as atrações mais populares.",
             ],
-            fontes=["Heurística local"] if not os.environ.get("GEMINI_API_KEY") else ["Google Gemini LLM"],
+            fontes=["Heurística local"]
+            if not os.environ.get("GEMINI_API_KEY")
+            else ["Google Gemini LLM"],
         )
 
     except Exception as e:
