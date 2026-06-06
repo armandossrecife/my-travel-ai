@@ -17,6 +17,8 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 # Navega para a raiz do projeto
 cd "$PROJECT_ROOT"
 
+PYTHON_BIN="${PYTHON_BIN:-python3}"
+
 # Verifica se está no diretório correto
 if [ ! -d "tests" ]; then
     echo "Erro: Diretório 'tests/' não encontrado. Execute a partir do diretório correto."
@@ -30,7 +32,7 @@ echo ""
 # 1. Testes do Backend (API + Agentes)
 echo -e "${YELLOW}📦 Executando Testes do Backend...${NC}"
 echo "----------------------------------------"
-python -m pytest tests/backend/ -v --tb=short
+"$PYTHON_BIN" -m pytest tests/backend/ -v --tb=short
 BACKEND_RESULT=$?
 
 if [ $BACKEND_RESULT -eq 0 ]; then
@@ -44,7 +46,7 @@ echo ""
 # 2. Testes do Frontend
 echo -e "${YELLOW}🌐 Executando Testes do Frontend...${NC}"
 echo "----------------------------------------"
-python -m pytest tests/frontend/ -v --tb=short
+"$PYTHON_BIN" -m pytest tests/frontend/ -v --tb=short
 FRONTEND_RESULT=$?
 
 if [ $FRONTEND_RESULT -eq 0 ]; then
@@ -58,7 +60,7 @@ echo ""
 # 3. Testes de Integração (opcional, pode demorar)
 echo -e "${YELLOW}🔗 Executando Testes de Integração...${NC}"
 echo "----------------------------------------"
-python -m pytest tests/integration/ -v --tb=short
+"$PYTHON_BIN" -m pytest tests/integration/ -v --tb=short
 INTEGRATION_RESULT=$?
 
 if [ $INTEGRATION_RESULT -eq 0 ]; then

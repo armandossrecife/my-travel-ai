@@ -1,0 +1,2 @@
+"""TravelAI application package."""
+

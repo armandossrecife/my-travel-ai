@@ -52,35 +52,35 @@ cd my-travel-ai/tests
 Ou:
 
 ```bash
-python -m pytest tests/ -v
+python3 -m pytest tests/ -v
 ```
 
 ### Executar por Categoria
 
 #### Apenas Backend
 ```bash
-python -m pytest tests/backend/ -v
+python3 -m pytest tests/backend/ -v
 ```
 
 #### Apenas Frontend
 ```bash
-python -m pytest tests/frontend/ -v
+python3 -m pytest tests/frontend/ -v
 ```
 
 #### Apenas Integração
 ```bash
-python -m pytest tests/integration/ -v
+python3 -m pytest tests/integration/ -v
 ```
 
 ### Executar Teste Específico
 ```bash
-python -m pytest tests/backend/test_api_health.py -v
-python -m pytest tests/frontend/test_js_functions.py -v
+python3 -m pytest tests/backend/test_api_health.py -v
+python3 -m pytest tests/frontend/test_js_functions.py -v
 ```
 
 ### Com Cobertura (se pytest-cov instalado)
 ```bash
-python -m pytest tests/ --cov=. --cov-report=html
+python3 -m pytest tests/ --cov=. --cov-report=html
 ```
 
 ---

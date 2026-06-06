@@ -11,7 +11,7 @@ import pytest
 # Adiciona o diretório raiz ao path para importar módulos do projeto
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from models import ExecutionMetadata, TravelContext, TravelPreferences, TravelRequest
+from app.models import ExecutionMetadata, TravelContext, TravelPreferences, TravelRequest
 
 # ── Fixtures para Backend ─────────────────────────────────────────
 

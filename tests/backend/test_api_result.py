@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
 from fastapi.testclient import TestClient
 
-from main import app
+from app.main import app
 
 client = TestClient(app)
 
@@ -69,9 +69,9 @@ class TestResultEndpoint:
         # Verifica se é um JSON válido
         assert isinstance(data, dict)
 
-        # Se estiver processando, deve ter status
+        # Pode estar processando ou já ter concluído, pois a heurística local é rápida.
         if "status" in data:
-            assert data["status"] == "processing"
+            assert data["status"] in ("processing", "sucesso", "parcial", "erro")
 
     def test_result_request_id_format(self):
         """Testa se o request_id tem formato válido (UUID)."""

@@ -1,187 +1,148 @@
-# Instruções
+# My Travel AI
 
-Este é um **protótipo** de IA multiagente com interface web. Algumas funcionalidades não estão completamente implementadas, pois o objetivo deste protótipo é demonstrar como agentes de IA podem funcionar utilizando modelos de LLM.
+Protótipo didático de IA multiagente com API FastAPI e interface web para planejamento de viagens. A aplicação combina agentes especialistas para sugerir passagens, hospedagens e roteiro turístico, usando heurística local por padrão e Google Gemini quando `GEMINI_API_KEY` está configurada.
 
-## Funcionalidades Implementadas
-- 4 agentes modulares (maestro, agente_aereo, agente_hotel, agente_turismo)
-- Execução paralela dos 3 agentes especialistas via concurrent.futures
-- Engine híbrida: Heurística local por padrão + Gemini LLM se GEMINI_API_KEY estiver configurada
-- Base de conhecimento rica para 7 destinos populares (Lisboa, Paris, Nova York, Miami, Buenos Aires, Roma + genérico)
-- **Interface Premium com UI Avançada:**
-  - Design Glassmorphism moderno
-  - Dark mode / Light mode com alternância suave
-  - Animação dos agentes em tempo real durante o processamento
-  - 4 abas de resultados (Passagens, Hotéis, Roteiro, Resumo)
-  - Formulário validado com feedback visual
-  - Formatação automática de moeda (BRL, USD)
-  - Responsivo para diferentes tamanhos de tela
-- Validação completa de datas, resiliência a falhas parciais
-- Captura estruturada de logs para monitoramento de backend, frontend e integração de API
+> Esta aplicação é um protótipo educacional para trabalhar conceitos básicos de agentes de IA generativa. Não use em produção sem revisar segurança, persistência, observabilidade e fontes reais de dados.
 
-## Interface Web (UI)
+## Funcionalidades
 
-A interface do usuário foi desenvolvida com foco em experiência do usuário (UX) e design moderno:
+- 4 agentes modulares: maestro, aéreo, hotel e turismo.
+- Execução paralela dos 3 agentes especialistas com `concurrent.futures`.
+- Engine híbrida: heurística local por padrão e Gemini LLM opcional.
+- Base de conhecimento local para destinos populares como Lisboa, Paris, Nova York, Miami, Buenos Aires e Roma.
+- API com endpoints para health check, criação de plano, consulta de resultado e streaming SSE.
+- Interface web estática com tema claro/escuro, progresso dos agentes, abas de resultado, validação de formulário e formatação de moeda.
+- Testes automatizados para backend, frontend e integração.
 
-### Recursos da UI:
-- **Glassmorphism**: Efeito de vidro fosco com blur e transparência
-- **Tema Escuro/Claro**: Alternância suave com salvamento de preferência no localStorage
-- **Animação de Agentes**: Visualização em tempo real do processamento de cada agente
-- **Abas de Resultados**: Organização clara das informações (Passagens, Hotéis, Roteiro, Resumo)
-- **Validação de Formulário**: Feedback visual imediato com destaque nos campos obrigatórios
-- **Formatação de Moeda**: Exibição automática em formato brasileiro (R$) ou internacional (US$)
+## Arquitetura
 
-### Arquivos da Interface:
-- `static/index.html` - Estrutura da página
-- `static/index.css` - Estilos com Glassmorphism e temas
-- `static/index.js` - Lógica de interação, validação e chamadas à API
-- `static/index_corrected.css` - Correções de estilo
+O projeto foi refatorado para separar responsabilidades em pacotes dentro de `app/`:
+
+```text
+app/
+├── main.py                 # Factory e instância FastAPI (app.main:app)
+├── api/
+│   ├── schemas.py          # Schemas da API, incluindo PlanRequest
+│   └── routes/             # Rotas health, plan, stream e result
+├── models/
+│   └── travel.py           # Modelos Pydantic de domínio
+├── agents/
+│   ├── maestro.py          # Orquestrador
+│   ├── aereo.py            # Agente de passagens
+│   ├── hotel.py            # Agente de hospedagens
+│   ├── turismo.py          # Agente de roteiro
+│   └── logger.py           # Eventos e filas para SSE
+├── services/
+│   └── planning_jobs.py    # Execução em background e armazenamento em memória
+└── ui/
+    └── static.py           # Montagem de / e /static
+```
+
+A interface permanece em:
+
+- `static/index.html`
+- `static/index.css`
+- `static/index.js`
+- `static/index_corrected.css`
+
+Novos imports devem usar `app.*`. Os módulos antigos de fachada (`main.py`, `models.py`, `agents/*`) foram removidos.
+
+## API
+
+- `GET /api/health` - status da aplicação e indicação de LLM habilitado.
+- `POST /api/plan` - inicia a geração de um plano e retorna `request_id`.
+- `GET /api/stream/{request_id}` - envia logs/eventos em tempo real via SSE.
+- `GET /api/result/{request_id}` - retorna `processing` ou o plano final.
+- `GET /` - serve a interface web.
+- `GET /docs` - documentação interativa do FastAPI.
 
 ## Execução
+
+Com Gemini:
 
 ```bash
 export GEMINI_API_KEY=sua_chave_aqui
 ./run.sh
 ```
 
+Sem Gemini, basta executar:
+
+```bash
+./run.sh
+```
+
+O script instala dependências com `uv` e inicia:
+
+```bash
+uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
 Saída esperada:
 
 ```bash
-🚀 Iniciando servidor em http://localhost:8000
-   Acesse a interface web em http://localhost:8000
-   Documentação da API em   http://localhost:8000/docs
+🚀 Iniciando servidor em http://127.0.0.1:8000
+   Acesse a interface web em http://127.0.0.1:8000
+   Documentação da API em   http://127.0.0.1:8000/docs
 ```
 
-## Captura de Logs
+## Testes
 
-O projeto implementa captura estruturada de logs para rastrear eventos em todas as camadas da aplicação:
-
-### Backend
-- Utiliza o módulo `logging` nativo do Python com configuração de rotação de arquivos.
-- Registra requisições à API, execução de agentes, erros e tempos de processamento.
-- Armazenamento: `logs/app.log`
-
-### Frontend
-- Logs de interação do usuário e chamadas à API via `console.log` estruturado no JavaScript.
-- Registro de alternância de tema, validação de formulário e respostas da API.
-- Exibição direta no console do navegador para depuração.
-
-### Integração
-- Captura de logs de comunicação entre frontend e backend, incluindo tempos de resposta e erros de rede.
-- Registro de fallback entre heurística local e LLM (se configurado).
-
-## Testes da Aplicação
-
-O projeto possui testes automatizados para validar tanto o backend (Python) quanto a lógica do frontend (JavaScript).
-
-### Testes Backend (Python)
-
-Localização: `tests/test_agents.py`
-
-Testa os agentes de IA, modelos Pydantic e integração da API.
+Executar a suíte completa:
 
 ```bash
-# Executar testes Python
-cd my-travel-ai
-python -m pytest tests/test_agents.py -v
+python3 -m pytest tests/backend tests/frontend tests/integration -q
 ```
 
-### Testes Frontend (JavaScript/UI)
-
-Como o ambiente pode não ter Node.js, criamos testes em Python que simulam a lógica das funções JavaScript:
-
-**Localização**: `tests/test_js_functions.py`
-
-**O que é testado**:
-- ✅ `formatCurrency()` - Formatação de moeda (BRL, USD, null, undefined)
-- ✅ `validateForm()` - Validação de formulário (campos obrigatórios, datas)
-- ✅ `getPreferredTheme()` - Detecção de tema (localStorage, preferência do sistema)
-- ✅ `applyTheme()` - Aplicação de tema e salvamento
-- ✅ `toggleTheme()` - Alternância dark/light mode
-- ✅ Sintaxe do arquivo JavaScript
-- ✅ Integração completa (validar → formatar)
+Ou por categoria:
 
 ```bash
-# Executar testes das funções JavaScript
-cd my-travel-ai
-python tests/test_js_functions.py
+python3 -m pytest tests/backend -v
+python3 -m pytest tests/frontend -v
+python3 -m pytest tests/integration -v
 ```
 
-**Saída esperada**:
-```
-🧪 Executando testes das funções JavaScript...
-
-📋 TestFormatCurrency
---------------------------------------------------
-  ✅ test_format_negative_value
-  ✅ test_format_null_value
-  ...
-
-📊 Resultado: 20/20 testes passaram
-```
-
-### Testes JavaScript Nativos (Jest - Opcional)
-
-Caso tenha Node.js instalado, há configuração para testes nativos em Jest:
-
-**Arquivos**: `package.json` e `tests/index.test.js`
+Também existe o script:
 
 ```bash
-# Instalar dependências (apenas primeira vez)
+./tests/run_tests.sh
+```
+
+### Organização dos Testes
+
+- `tests/backend/` - API FastAPI, modelos Pydantic e agentes.
+- `tests/frontend/` - estrutura HTML, consistência CSS e funções JS simuladas em Python.
+- `tests/integration/` - fluxo completo e SSE.
+- `tests/frontend/js_unit_tests/` - testes Jest opcionais.
+
+Para testes JavaScript nativos, quando Node.js estiver disponível:
+
+```bash
 npm install
-
-# Executar testes Jest
 npm test
 ```
 
-### Testes de Integração
+## Logs e Progresso
 
-Valida o fluxo completo de ponta a ponta da aplicação, garantindo a comunicação correta entre todas as camadas:
+O progresso do processamento é exposto por eventos em memória:
 
-**Localização**: `tests/test_integration.py`
+- `app/agents/logger.py` mantém filas por `request_id`.
+- `app/services/planning_jobs.py` armazena resultados em memória.
+- `GET /api/stream/{request_id}` consome os eventos via SSE.
+- O frontend também registra interações e respostas no console do navegador.
 
-**O que é testado**:
-- ✅ Fluxo completo: Envio de formulário → Processamento de agentes → Exibição de resultados
-- ✅ Integração frontend-backend via chamadas à API REST
-- ✅ Fallback entre heurística local e LLM (se `GEMINI_API_KEY` estiver configurada)
-- ✅ Tratamento de erros parciais e resiliência do maestro
+## Observações Técnicas
 
-```bash
-# Executar testes de integração
-cd my-travel-ai
-python -m pytest tests/test_integration.py -v
-```
+- O armazenamento de resultados é em memória; reiniciar o servidor apaga jobs/resultados.
+- A heurística local não consulta disponibilidade real de voos, hotéis ou atrações.
+- Quando `GEMINI_API_KEY` está presente, os agentes tentam usar Gemini e fazem fallback para heurística local em caso de erro.
+- Valores, disponibilidade e horários devem ser confirmados em fontes oficiais antes de qualquer compra/reserva.
 
-## Como Executar Todos os Testes
+## Material de Projeto
 
-```bash
-# 1. Testes Python (Backend)
-python -m pytest tests/test_agents.py -v
+- Planejamento: [planos](planos)
+- Revisões/documentação auxiliar: [docs](docs)
+- Testes automáticos: [tests](tests)
 
-# 2. Testes das funções JavaScript (Python)
-python tests/test_js_functions.py
+## Contato
 
-# 3. Testes Jest (se tiver Node.js)
-npm test
-
-# 4. Testes de Integração
-python -m pytest tests/test_integration.py -v
-```
-
-## Projeto
-
-Planejamento do protótipo da solução disponível em [planos](planos)
-
-Telas disponíveis em [docs/telas](docs/telas)
-
-Imagem de serviços de API disponível em [docs/servicos](docs/servicos)
-
-Testes automáticos disponíveis em:
-- Backend: [tests/test_agents.py](tests/test_agents.py)
-- Frontend/UI: [tests/test_js_functions.py](tests/test_js_functions.py)
-- Jest (opcional): [tests/index.test.js](tests/index.test.js)
-
-## Informações
-
-Dúvidas, mais informações ou sugestões envie um e-mail para armando@ufpi.edu.br
-
-Observação: esta aplicação é apenas um protótipo didático para trabalhar os conceitos básicos de Agentes de IA Generativa, não use em produção.
+Dúvidas, informações ou sugestões: armando@ufpi.edu.br

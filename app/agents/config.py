@@ -1,0 +1,1 @@
+MODELO_LMM ="gemini-3.1-flash-lite"

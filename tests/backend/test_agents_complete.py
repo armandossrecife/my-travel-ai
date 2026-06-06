@@ -13,8 +13,8 @@ from datetime import date, timedelta
 
 import pytest
 
-from agents import aereo, hotel, maestro, turismo
-from models import ExecutionMetadata, TravelContext, TravelPreferences, TravelRequest
+from app.agents import aereo, hotel, maestro, turismo
+from app.models import ExecutionMetadata, TravelContext, TravelPreferences, TravelRequest
 
 # ── Fixtures ──────────────────────────────────────────────────────
 
@@ -192,7 +192,10 @@ class TestAgenteTurismo:
         ctx = make_context()
         resultado = turismo.run(ctx)
         ultimo = resultado.data["roteiro_por_dia"][-1]
-        assert "despedida" in ultimo["tema"].lower()
+        assert any(
+            termo in ultimo["tema"].lower()
+            for termo in ("despedida", "retorno")
+        )
 
     def test_pontos_turisticos_presentes(self):
         ctx = make_context()

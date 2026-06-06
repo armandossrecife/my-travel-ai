@@ -10,7 +10,7 @@ from pydantic import ValidationError
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
-from models import (
+from app.models import (
     AgentResult,
     CostEstimation,
     DailyItinerary,

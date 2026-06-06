@@ -1,8 +1,8 @@
 # 📋 Documentação Técnica de Software
 ## Projeto: my-travel-ai
 **Repositório:** https://github.com/armandossrecife/my-travel-ai  
-**Versão do Documento:** 1.0.0  
-**Última Atualização:** Maio 2026  
+**Versão do Documento:** 1.2.0  
+**Última Atualização:** Junho 2026  
 **Classificação:** Protótipo Acadêmico/Técnico
 
 **Autor:**: Armando Soares Sousa
@@ -52,7 +52,7 @@ O `my-travel-ai` é um protótipo de aplicação web para **planejamento intelig
 | Autenticação de usuários | ❌ Não implementado | Acesso aberto |
 | **Arquitetura multiagente** | ✅ Implementado | Orquestrador + 3 especialistas |
 | **Integração opcional com LLM** | ✅ Implementado | Google Gemini via env var |
-| **Testes automatizados** | ✅ Implementado | 25 testes passando |
+| **Testes automatizados** | ✅ Implementado | 123 testes passando |
 | **Interface web funcional** | ✅ Implementado | Frontend estático |
 
 > ⚠️ **AVISO CRÍTICO**: Esta aplicação é um **demonstrador de arquitetura**, não um produto para reservas reais. Todos os preços e disponibilidades são estimativas que devem ser confirmadas em fontes oficiais.
@@ -62,8 +62,8 @@ O `my-travel-ai` é um protótipo de aplicação web para **planejamento intelig
 ```yaml
 Backend:
   - Python 3.10+
-  - FastAPI 0.95+
-  - Pydantic 2.0+
+  - FastAPI 0.110+
+  - Pydantic 2.6+
   - Uvicorn (ASGI server)
   - concurrent.futures (paralelismo)
 
@@ -77,7 +77,7 @@ IA/ML:
   - Heurística local como fallback
 
 DevOps:
-  - pytest (testes unitários)
+  - pytest (testes backend, frontend e integração)
   - requirements.txt (dependências)
   - run.sh (script de inicialização)
 ```
@@ -102,9 +102,12 @@ DevOps:
 ┌─────────────────────────────────────┐
 │         CAMADA DE API (FastAPI)     │
 │  ┌─────────────────────────────┐    │
-│  │  main.py                    │    │
+│  │  app/main.py                │    │
+│  │  app/api/routes/*.py        │    │
 │  │  • GET  /api/health         │    │
 │  │  • POST /api/plan           │    │
+│  │  • GET  /api/stream/{id}    │    │
+│  │  • GET  /api/result/{id}    │    │
 │  │  • GET  / (frontend)        │    │
 │  └─────────────────────────────┘    │
 └────────────┬────────────────────────┘
@@ -113,7 +116,8 @@ DevOps:
 ┌─────────────────────────────────────┐
 │      CAMADA DE DOMÍNIO/CONTRATOS    │
 │  ┌─────────────────────────────┐    │
-│  │  models.py                  │    │
+│  │  app/api/schemas.py         │    │
+│  │  app/models/travel.py       │    │
 │  │  • TravelRequest            │    │
 │  │  • TravelContext            │    │
 │  │  • TravelPlan               │    │
@@ -125,7 +129,7 @@ DevOps:
 ┌──────────────────────────────────────┐
 │      CAMADA DE AGENTES (Orquestração)│
 │  ┌──────────────────────────────┐    │
-│  │  agents/maestro.py           │    │
+│  │  app/agents/maestro.py       │    │
 │  │  • Validação de entrada      │    │
 │  │  • Execução paralela         │    │
 │  │  • Consolidação de resultados│    │
@@ -153,20 +157,26 @@ DevOps:
 # Fluxo lógico simplificado
 Usuario → Frontend → POST /api/plan
                     ↓
-              FastAPI (main.py)
+              FastAPI (app.main:app)
+                    ↓
+              PlanRequest (app/api/schemas.py)
                     ↓
               TravelRequest (Pydantic)
                     ↓
-              maestro.run()
-                    ├─▶ agente_aereo.run() ──▶ FlightOption[]
-                    ├─▶ agente_hotel.run() ──▶ HotelOption[]
-                    └─▶ agente_turismo.run() ─▶ DailyItinerary[]
+              Background job + request_id
+                    ↓
+              maestro.run(request_id=...)
+                    ├─▶ app.agents.aereo.run() ──▶ FlightOption[]
+                    ├─▶ app.agents.hotel.run() ──▶ HotelOption[]
+                    └─▶ app.agents.turismo.run() ─▶ DailyItinerary[]
                     ↓
               Consolidação + Cálculo de custos
                     ↓
-              TravelPlan (resposta JSON)
+              TravelPlan em memória
                     ↓
-              Frontend (renderização em abas)
+              SSE (/api/stream/{id}) + /api/result/{id}
+                    ↓
+              Frontend (logs + renderização em abas)
 ```
 
 **Características do padrão:**
@@ -175,6 +185,7 @@ Usuario → Frontend → POST /api/plan
 - ✅ Status granular: `sucesso`, `parcial`, `erro`
 - ✅ Timeout configurável por agente (60s padrão)
 - ✅ Consolidação centralizada de alertas e recomendações
+- ✅ Progresso em tempo real via Server-Sent Events (SSE)
 
 ---
 
@@ -183,25 +194,45 @@ Usuario → Frontend → POST /api/plan
 ```
 my-travel-ai/
 ├── 📄 README.md                    # Documentação de alto nível
-├── 📄 main.py                      # Entry point: FastAPI + endpoints
-├── 📄 models.py                    # Contratos Pydantic (domínio)
 ├── 📄 requirements.txt             # Dependências Python
 ├── 📄 run.sh                       # Script de inicialização
 │
-├── 📁 agents/                      # Módulo de agentes especializados
+├── 📁 app/                         # Código da aplicação
 │   ├── 📄 __init__.py
-│   ├── 📄 maestro.py              # Orquestrador principal
-│   ├── 📄 aereo.py                # Agente de passagens aéreas
-│   ├── 📄 hotel.py                # Agente de hospedagem
-│   └── 📄 turismo.py              # Agente de roteiro turístico
+│   ├── 📄 main.py                  # Factory FastAPI e app.main:app
+│   ├── 📁 api/
+│   │   ├── 📄 schemas.py           # Schemas da API (PlanRequest)
+│   │   └── 📁 routes/
+│   │       ├── 📄 health.py        # GET /api/health
+│   │       ├── 📄 plan.py          # POST /api/plan
+│   │       ├── 📄 stream.py        # GET /api/stream/{request_id}
+│   │       └── 📄 result.py        # GET /api/result/{request_id}
+│   ├── 📁 models/
+│   │   └── 📄 travel.py            # Contratos Pydantic de domínio
+│   ├── 📁 agents/
+│   │   ├── 📄 maestro.py           # Orquestrador principal
+│   │   ├── 📄 aereo.py             # Agente de passagens aéreas
+│   │   ├── 📄 hotel.py             # Agente de hospedagem
+│   │   ├── 📄 turismo.py           # Agente de roteiro turístico
+│   │   ├── 📄 logger.py            # Eventos em memória para SSE
+│   │   ├── 📄 base_local.py        # Bases locais de conhecimento
+│   │   └── 📄 config.py            # Configurações de agentes/LLM
+│   ├── 📁 services/
+│   │   └── 📄 planning_jobs.py     # Jobs em background + results_store
+│   └── 📁 ui/
+│       └── 📄 static.py            # Montagem de / e /static
 │
 ├── 📁 static/                      # Frontend estático
 │   ├── 📄 index.html              # Interface principal
 │   ├── 📄 index.css               # Estilos (Glassmorphism)
+│   ├── 📄 index_corrected.css     # Correções/variações de estilo
 │   └── 📄 index.js                # Lógica frontend + fetch API
 │
 ├── 📁 tests/                       # Suíte de testes automatizados
-│   └── 📄 test_agents.py          # Testes unitários dos agentes
+│   ├── 📁 backend/                # API, modelos e agentes
+│   ├── 📁 frontend/               # HTML, CSS e funções JS
+│   ├── 📁 integration/            # Fluxos completos e SSE
+│   └── 📄 run_tests.sh            # Runner da suíte
 │
 ├── 📁 skills/                      # Documentação de habilidades dos agentes
 │   └── 📄 skill.md                # Especificação comportamental
@@ -233,26 +264,30 @@ rm -rf __MACOSX/ ._* __pycache__/ .pytest_cache/ .DS_Store
 
 ## 4. Componentes Principais
 
-### 4.1 `main.py` — API e Ponto de Entrada
+### 4.1 `app/main.py` e `app/api/routes/*` — API e Ponto de Entrada
 
 **Responsabilidades:**
-- Inicializar aplicação FastAPI com metadados
-- Expor endpoints REST documentados (OpenAPI)
-- Servir frontend estático na rota raiz
-- Validar entrada da API e converter para domínio
-- Orquestrar chamada ao `maestro` e retornar resposta
+- `app/main.py`: criar a aplicação FastAPI, incluir routers e montar a UI estática
+- `app/api/schemas.py`: definir `PlanRequest`
+- `app/api/routes/health.py`: expor status da API
+- `app/api/routes/plan.py`: validar entrada, converter para `TravelRequest` e iniciar job em background
+- `app/api/routes/stream.py`: transmitir progresso em tempo real via SSE
+- `app/api/routes/result.py`: consultar resultado final por `request_id`
+- `app/ui/static.py`: servir `static/index.html` e arquivos de `/static`
 
 **Endpoints:**
 
 | Método | Rota | Descrição | Request | Response |
 |--------|------|-----------|---------|----------|
 | `GET` | `/api/health` | Health check da API | - | `{"status": "ok", "llm_enabled": bool}` |
-| `POST` | `/api/plan` | Gerar plano de viagem | `PlanRequest` | `TravelPlan` (JSON) |
+| `POST` | `/api/plan` | Iniciar geração de plano | `PlanRequest` | `{"request_id": "...", "status": "processing"}` |
+| `GET` | `/api/stream/{request_id}` | Acompanhar progresso via SSE | - | Eventos `data: {...}` |
+| `GET` | `/api/result/{request_id}` | Consultar resultado final | - | `{"status": "processing"}` ou `TravelPlan` |
 | `GET` | `/` | Servir frontend | - | `index.html` |
 
 **Código-chave:**
 ```python
-@app.post("/api/plan", response_model=None)  # ⚠️ Melhorar: definir response_model
+@router.post("/api/plan")
 async def generate_travel_plan(request: PlanRequest):
     # 1. Converter PlanRequest → TravelRequest
     travel_req = TravelRequest(
@@ -260,31 +295,33 @@ async def generate_travel_plan(request: PlanRequest):
         # ... mapeamento de campos
     )
     
-    # 2. Executar orquestrador
-    plano = maestro.run(travel_req)
+    # 2. Criar fila de eventos e iniciar execução em background
+    request_id = str(uuid.uuid4())
+    event_logger.create_queue(request_id)
+    thread = threading.Thread(
+        target=run_maestro_background,
+        args=(request_id, travel_req),
+    )
+    thread.start()
     
-    # 3. Tratamento de erros
-    if plano.status == "erro":
-        raise HTTPException(status_code=422, detail={"erros": plano.alertas})
-    
-    # 4. Retornar plano serializado
-    return plano.model_dump()
+    # 3. Retornar identificador para SSE/polling
+    return {"request_id": request_id, "status": "processing"}
 ```
 
 **Pontos de Atenção para Manutenção:**
-- ⚠️ `response_model=None` perde validação automática do FastAPI
 - ⚠️ Sem middleware CORS configurado (necessário para frontend separado)
 - ⚠️ Sem autenticação/rate limiting (risco de abuso em produção)
 - ⚠️ Erros expõem `str(e)` — sanitizar para produção
+- ⚠️ `results_store` é em memória; reiniciar o servidor apaga resultados
 
 ---
 
-### 4.2 `models.py` — Modelagem de Domínio com Pydantic
+### 4.2 `app/api/schemas.py` e `app/models/travel.py` — Modelagem de Domínio com Pydantic
 
 **Contratos Principais:**
 
 ```python
-# Entrada da API (mapeamento do formulário)
+# Entrada da API (app/api/schemas.py)
 class PlanRequest(BaseModel):
     cidade_destino: str = Field(...)
     data_saida: date = Field(...)
@@ -297,7 +334,7 @@ class PlanRequest(BaseModel):
     ritmo_roteiro: str = Field(default="moderado")  # leve | moderado | intenso
     interesses: List[str] = Field(default_factory=list)
 
-# Modelo interno de domínio
+# Modelo interno de domínio (app/models/travel.py)
 class TravelRequest(BaseModel):
     cidade_destino: str
     data_saida: date
@@ -370,7 +407,7 @@ def validar_data_retorno(cls, v, info):
 
 ---
 
-### 4.3 `agents/maestro.py` — Orquestrador Principal
+### 4.3 `app/agents/maestro.py` — Orquestrador Principal
 
 **Fluxo de Execução:**
 
@@ -382,9 +419,9 @@ graph TD
     D -->|Não| E[Retornar TravelPlan com status=erro]
     D -->|Sim| F[Construir TravelContext enriquecido]
     F --> G[ThreadPoolExecutor: 3 workers]
-    G --> H[agente_aereo.run(ctx)]
-    G --> I[agente_hotel.run(ctx)]
-    G --> J[agente_turismo.run(ctx)]
+    G --> H[app.agents.aereo.run(ctx)]
+    G --> I[app.agents.hotel.run(ctx)]
+    G --> J[app.agents.turismo.run(ctx)]
     H --> K[Aguardar resultados com timeout=60s]
     I --> K
     J --> K
@@ -434,7 +471,7 @@ def _calcular_estimativa_custos(resultado_aereo, resultado_hotel) -> CostEstimat
 
 ---
 
-### 4.4 `agents/aereo.py` — Agente de Passagens Aéreas
+### 4.4 `app/agents/aereo.py` — Agente de Passagens Aéreas
 
 **Base de Conhecimento Local:**
 ```python
@@ -481,7 +518,7 @@ def _gerar_opcoes_llm(ctx: TravelContext) -> List[FlightOption]:
     Responda SOMENTE com um JSON array, sem markdown...
     """
     
-    response = client.models.generate_content(model="gemini-2.0-flash", contents=prompt)
+response = client.models.generate_content(model="gemini-3.1-flash-lite", contents=prompt)
     
     # Parsing resiliente de JSON
     raw = response.text.strip()
@@ -513,7 +550,7 @@ def run(ctx: TravelContext) -> AgentResult:
 
 ---
 
-### 4.5 `agents/hotel.py` — Agente de Hospedagem
+### 4.5 `app/agents/hotel.py` — Agente de Hospedagem
 
 **Estrutura da Base de Conhecimento:**
 ```python
@@ -561,7 +598,7 @@ def _calcular_score_hotel(hotel: dict, ctx: TravelContext) -> float:
 
 ---
 
-### 4.6 `agents/turismo.py` — Agente de Roteiro Turístico
+### 4.6 `app/agents/turismo.py` — Agente de Roteiro Turístico
 
 **Base de Pontos Turísticos:**
 ```python
@@ -720,7 +757,8 @@ GET /api/health
   "status": "ok",
   "service": "Travel Planner Multiagent API",
   "version": "1.0.0",
-  "llm_enabled": false
+  "llm_enabled": false,
+  "active_logs": 0
 }
 ```
 
@@ -731,6 +769,7 @@ GET /api/health
 | `service` | string | Nome do serviço |
 | `version` | string | Versão da API |
 | `llm_enabled` | boolean | `true` se `GEMINI_API_KEY` estiver configurada |
+| `active_logs` | integer | Quantidade de filas SSE ativas em memória |
 
 ### 6.2 Gerar Plano de Viagem
 
@@ -758,23 +797,65 @@ Content-Type: application/json
 **Validações Automáticas (Pydantic):**
 - `cidade_destino`: obrigatório, não vazio
 - `data_saida`/`data_retorno`: obrigatórios, formato ISO 8601
-- `data_retorno > data_saida`: validação lógica
 - `quantidade_viajantes >= 1`: restrição mínima
 
-**Resposta de Sucesso (200 OK):** `TravelPlan` (ver seção 5.2)
+**Validações de Domínio (Maestro):**
+- `data_retorno > data_saida`
+- viagem com pelo menos 1 noite
+- normalização de cidade de destino/origem antes de executar agentes
+
+**Resposta de Sucesso (200 OK):**
+```json
+{
+  "request_id": "550e8400-e29b-41d4-a716-446655440000",
+  "status": "processing",
+  "message": "Processamento iniciado. Use GET /api/stream/550e8400-e29b-41d4-a716-446655440000 para acompanhar."
+}
+```
+
+O `TravelPlan` final fica disponível via SSE em `/api/stream/{request_id}` ou por polling em `/api/result/{request_id}`.
 
 **Respostas de Erro:**
 
 | Status | Cenário | Exemplo de `detail` |
 |--------|---------|-------------------|
-| `422` | Validação falhou | `{"message": "Não foi possível processar", "erros": ["'data_retorno' deve ser posterior..."]}` |
+| `422` | Validação Pydantic falhou | Resposta padrão do FastAPI |
 | `500` | Erro interno não tratado | `{"detail": "Traceback da exceção..."}` ⚠️ sanitizar em produção |
 
-### 6.3 Documentação Automática
+### 6.3 Streaming de Logs e Resultado
+
+```http
+GET /api/stream/{request_id}
+Accept: text/event-stream
+```
+
+Eventos normais:
+```text
+data: {"timestamp":"2026-06-05T19:55:01","agent":"aereo","level":"info","message":"Iniciando busca de voos para Lisboa"}
+```
+
+Evento final:
+```text
+data: {"event":"done","result":{...TravelPlan...}}
+```
+
+Consulta direta do resultado:
+```http
+GET /api/result/{request_id}
+```
+
+Enquanto o processamento não terminou:
+```json
+{"status": "processing"}
+```
+
+Após a conclusão: `TravelPlan` completo (ver seção 5.2).
+
+### 6.4 Documentação Automática
 
 Acesse em execução:
-- 📚 **Swagger UI**: `http://localhost:8000/docs`
-- 📖 **ReDoc**: `http://localhost:8000/redoc`
+- 📚 **Swagger UI**: `http://127.0.0.1:8000/docs`
+- 📖 **ReDoc**: `http://127.0.0.1:8000/redoc`
 
 ---
 
@@ -902,16 +983,25 @@ document.querySelector('#travelForm').addEventListener('submit', async (e) => {
   // 4. Exibe animação de "agentes trabalhando"
   showAgentAnimation();
   
-  // 5. Envia para API
+  // 5. Envia para API e recebe request_id
   const response = await fetch('/api/plan', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify(payload)
   });
+  const initResult = await response.json();
   
-  // 6. Renderiza resultado em abas
-  const plano = await response.json();
-  renderResults(plano);
+  // 6. Abre SSE para logs e resultado final
+  const eventSource = new EventSource(`/api/stream/${initResult.request_id}`);
+  eventSource.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+    if (data.event === 'done') {
+      eventSource.close();
+      renderResults(data.result);
+    } else {
+      addLogEntry(data);
+    }
+  };
 });
 ```
 
@@ -920,7 +1010,7 @@ document.querySelector('#travelForm').addEventListener('submit', async (e) => {
 | Componente | Descrição | Tecnologias |
 |------------|-----------|-------------|
 | Formulário | Coleta dados da viagem com validação visual | HTML5 form + JS validation |
-| Animação de Agentes | Feedback visual em tempo real do processamento | CSS animations + JS async simulation |
+| Animação de Agentes | Feedback visual durante processamento | CSS animations + SSE/EventSource |
 | Abas de Resultado | Organização do plano em 4 seções | HTML tabs + CSS transitions |
 | Cards de Opções | Exibição de voos/hotéis comparáveis | CSS Grid + flexbox |
 | Roteiro Diário | Timeline visual do itinerário | CSS flex + date formatting |
@@ -931,7 +1021,7 @@ document.querySelector('#travelForm').addEventListener('submit', async (e) => {
 
 ### 8.4 Limitações do Frontend Atual
 
-- ⚠️ Animação dos agentes é **simulada** (delays fixos), não reflete progresso real do backend
+- ⚠️ A animação visual usa delays para entrada dos cards, mas logs reais chegam por SSE
 - ⚠️ Sem framework frontend (React/Vue) — pode dificultar manutenção em escala
 - ⚠️ Sem internacionalização (i18n)
 - ⚠️ Acessibilidade básica (ARIA labels mínimos)
@@ -950,7 +1040,8 @@ document.querySelector('#travelForm').addEventListener('submit', async (e) => {
 - **Transição Suave**: Animação de 0.3s entre temas
 
 #### **Animações Avançadas**
-- **Agent Cards**: Animação sequencial dos 3 agentes durante processamento
+- **Agent Cards**: Animação sequencial dos agentes durante processamento
+- **Logs em Tempo Real**: Eventos de backend via `EventSource` e endpoint SSE
 - **Status Badges**: Atualização visual de status (pending → processing → done/error)
 - **Loading States**: Feedback visual enquanto API processa
 
@@ -970,79 +1061,30 @@ document.querySelector('#travelForm').addEventListener('submit', async (e) => {
 
 ## 9. Testes e Qualidade
 
-### 9.1 Suíte de Testes Backend (`tests/test_agents.py`)
+### 9.1 Suíte de Testes Backend (`tests/backend/`)
 
 **Execução:**
 ```bash
-pytest tests/test_agents.py -v
-# Resultado esperado: 25 passed in ~0.20s
+python3 -m pytest tests/backend -v
 ```
 
 **Cobertura Funcional:**
 
 | Categoria | Testes | Descrição |
 |-----------|--------|-----------|
-| Validação de Entrada | 3 | Rejeição de cidade ausente, datas inválidas, retorno < saída |
-| Cálculos de Domínio | 2 | Cálculo de dias/noites, normalização de cidade |
-| Contratos de Agente | 6 | Estrutura de resposta de cada agente (aereo/hotel/turismo) |
-| Resiliência | 2 | Destino genérico, fallback em caso de erro |
-| Metadados | 2 | Geração de `request_id` único, presença de alertas |
-| Orquestração | 10 | Validação do maestro: status, consolidação, tratamento de falhas |
+| API | `test_api_health.py`, `test_api_plan.py`, `test_api_result.py`, `test_api_stream.py` | Endpoints REST, SSE, status e request_id |
+| Modelos | `test_models.py` | Contratos Pydantic e serialização |
+| Agentes | `test_agents_complete.py` | Maestro, agentes especialistas, heurística e estrutura de resposta |
 
-### 9.2 Testes Frontend/UI (`tests/test_js_functions.py`)
+### 9.2 Testes Frontend/UI (`tests/frontend/`)
 
-**Localização**: `tests/test_js_functions.py`
+**Localização**: `tests/frontend/`
 
 Como o ambiente pode não ter Node.js, foram criados testes em **Python** que simulam a lógica das funções JavaScript.
 
 **Execução:**
 ```bash
-cd my-travel-ai
-python tests/test_js_functions.py
-```
-
-**Saída Esperada:**
-```
-🧪 Executando testes das funções JavaScript...
-
-📋 TestFormatCurrency
---------------------------------------------------
-  ✅ test_format_negative_value
-  ✅ test_format_null_value
-  ✅ test_format_undefined_value
-  ✅ test_format_valid_value_brl
-  ✅ test_format_valid_value_usd
-  ✅ test_format_zero_value
-
-📋 TestValidateForm
---------------------------------------------------
-  ✅ test_city_with_spaces
-  ✅ test_empty_city
-  ✅ test_missing_data_retorno
-  ✅ test_missing_data_saida
-  ✅ test_return_before_departure
-  ✅ test_same_dates
-  ✅ test_valid_data
-
-📋 TestThemeFunctions
---------------------------------------------------
-  ✅ test_theme_default
-  ✅ test_theme_logic_dark_to_light
-  ✅ test_theme_logic_light_to_dark
-
-📋 TestJavaScriptSyntax
---------------------------------------------------
-  ✅ test_file_exists
-  ✅ test_has_required_functions
-  ✅ test_js_syntax_basic
-
-📋 TestIntegration
---------------------------------------------------
-  ✅ test_complete_flow
-
-==================================================
-📊 Resultado: 20/20 testes passaram
-==================================================
+python3 -m pytest tests/frontend -v
 ```
 
 **O que é testado:**
@@ -1053,10 +1095,11 @@ python tests/test_js_functions.py
 - ✅ `toggleTheme()` - Alternância dark/light mode
 - ✅ Sintaxe do arquivo JavaScript (verificação de chaves, parênteses, funções)
 - ✅ Integração completa (validar → formatar)
+- ✅ Estrutura HTML e consistência CSS
 
 ### 9.3 Testes JavaScript Nativos com Jest (Opcional)
 
-**Localização**: `tests/index.test.js` e `package.json`
+**Localização**: `tests/frontend/js_unit_tests/index.test.js` e `package.json`
 
 Caso tenha **Node.js** instalado, há configuração para testes nativos em Jest:
 
@@ -1083,16 +1126,19 @@ npm test
 ```bash
 # 1. Testes Python (Backend)
 cd my-travel-ai
-python -m pytest tests/test_agents.py -v
+python3 -m pytest tests/backend -v
 
-# 2. Testes das funções JavaScript (Python)
-python tests/test_js_functions.py
+# 2. Testes Frontend/UI
+python3 -m pytest tests/frontend -v
 
 # 3. Testes Jest (se tiver Node.js)
 npm test
 
 # 4. Testes de Integração
-python -m pytest tests/test_integration.py -v
+python3 -m pytest tests/integration -v
+
+# Ou tudo de uma vez
+python3 -m pytest tests/backend tests/frontend tests/integration -q
 ```
 
 ### 9.5 Lacunas de Teste (Recomendações)
@@ -1100,7 +1146,7 @@ python -m pytest tests/test_integration.py -v
 ```python
 # 1. Testes de API com TestClient
 from fastapi.testclient import TestClient
-from main import app
+from app.main import app
 
 client = TestClient(app)
 
@@ -1112,7 +1158,8 @@ def test_post_api_plan_success():
     })
     assert response.status_code == 200
     data = response.json()
-    assert data["status"] in ["sucesso", "parcial"]
+    assert data["status"] == "processing"
+    assert "request_id" in data
 
 # 2. Testes com LLM habilitado (mock do Gemini)
 @patch('google.genai.Client')
@@ -1127,7 +1174,7 @@ def test_maestro_timeout_handling():
 
 # 4. Testes de frontend (sugestão: Playwright)
 # async def test_form_submission_and_rendering(page):
-#     await page.goto("http://localhost:8000")
+#     await page.goto("http://127.0.0.1:8000")
 #     # ... preencher formulário e validar resultado
 
 # 5. Testes adicionais para UI (sugeridos)
@@ -1141,17 +1188,18 @@ def test_maestro_timeout_handling():
 
 | Métrica | Valor Atual | Meta Recomendada |
 |---------|-------------|-----------------|
-| Testes Backend passando | 25/25 | Manter 100% |
-| Testes Frontend (JS Functions) | 20/20 | Manter 100% |
-| Testes de Integração | 5/5 | Manter 100% |
+| Testes automatizados passando | 123/123 | Manter 100% |
+| Testes Backend | Implementados em `tests/backend/` | Manter 100% |
+| Testes Frontend | Implementados em `tests/frontend/` | Manter 100% |
+| Testes de Integração | Implementados em `tests/integration/` | Manter 100% |
 | Cobertura de código | ~60% (estimado) | ≥80% |
-| Tempo de execução dos testes | 0.20s | <1s |
+| Tempo de execução dos testes | ~7-9s | <15s |
 | Dependências externas nos testes | 0 | Manter 0 (mock tudo) |
 | Testes E2E (UI) | 0 | Adicionar Playwright/Cypress |
 
 ### 9.7 Testes de Integração (Backend + Frontend + API)
 
-**Localização**: `tests/test_integration.py`
+**Localização**: `tests/integration/`
 
 Valida o fluxo completo de ponta a ponta da aplicação, garantindo a comunicação correta entre todas as camadas.
 
@@ -1163,7 +1211,7 @@ Valida o fluxo completo de ponta a ponta da aplicação, garantindo a comunicaç
 
 **Execução:**
 ```bash
-python -m pytest tests/test_integration.py -v
+python3 -m pytest tests/integration -v
 ```
 
 ---
@@ -1192,7 +1240,7 @@ python -m pytest tests/test_integration.py -v
 ### 10.2 Middleware de Segurança Recomendado
 
 ```python
-# main.py - Adicionar após app = FastAPI(...)
+# app/main.py - adicionar dentro de create_app(), após criar api_app
 
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -1200,7 +1248,7 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
 # 1. CORS
-app.add_middleware(
+api_app.add_middleware(
     CORSMiddleware,
     allow_origins=["https://meudominio.com"],  # Especificar em produção!
     allow_credentials=True,
@@ -1210,8 +1258,8 @@ app.add_middleware(
 
 # 2. Rate Limiting
 limiter = Limiter(key_func=get_remote_address)
-app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+api_app.state.limiter = limiter
+api_app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Aplicar decorator nos endpoints
 @app.post("/api/plan")
@@ -1243,8 +1291,8 @@ prompt = f"""...
 ### 11.1 Health Check Básico
 
 ```bash
-curl http://localhost:8000/api/health
-# Resposta: {"status": "ok", "llm_enabled": false}
+curl http://127.0.0.1:8000/api/health
+# Resposta: {"status": "ok", "llm_enabled": false, "active_logs": 0}
 ```
 
 ### 11.2 Captura Estruturada de Logs (Implementada)
@@ -1252,9 +1300,9 @@ curl http://localhost:8000/api/health
 O projeto implementa captura estruturada de logs para rastrear eventos em todas as camadas da aplicação:
 
 **Backend:**
-- Utiliza o módulo `logging` nativo do Python com configuração de rotação de arquivos.
-- Registra requisições à API, execução de agentes, erros e tempos de processamento.
-- Armazenamento: `logs/app.log`
+- `app/agents/logger.py` mantém um `EventLogger` thread-safe com filas por `request_id`.
+- Eventos são impressos no terminal e enviados ao endpoint SSE.
+- `app/services/planning_jobs.py` mantém `results_store` em memória para o plano final.
 
 **Frontend:**
 - Logs de interação do usuário e chamadas à API via `console.log` estruturado no JavaScript.
@@ -1271,7 +1319,7 @@ O projeto implementa captura estruturada de logs para rastrear eventos em todas 
 # requirements.txt - Adicionar
 prometheus-fastapi-instrumentator==6.1.0
 
-# main.py
+# app/main.py
 from prometheus_fastapi_instrumentator import Instrumentator
 
 @app.on_event("startup")
@@ -1322,10 +1370,10 @@ git clone https://github.com/armandossrecife/my-travel-ai.git
 cd my-travel-ai
 
 # 2. Criar ambiente virtual (recomendado)
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
+python3 -m venv .venv
+source .venv/bin/activate  # Linux/Mac
 # ou
-venv\Scripts\activate  # Windows
+.venv\Scripts\activate  # Windows
 
 # 3. Instalar dependências
 pip install -r requirements.txt
@@ -1338,16 +1386,16 @@ set GEMINI_API_KEY=sua_chave_aqui  # Windows CMD
 $env:GEMINI_API_KEY="sua_chave_aqui"  # PowerShell
 
 # 5. Executar testes
-pytest tests/ -v
+python3 -m pytest tests/backend tests/frontend tests/integration -q
 
 # 6. Iniciar servidor
 ./run.sh
 # ou manualmente:
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 # 7. Acessar aplicação
-# Frontend: http://localhost:8000
-# API Docs: http://localhost:8000/docs
+# Frontend: http://127.0.0.1:8000
+# API Docs: http://127.0.0.1:8000/docs
 ```
 
 ### 12.2 Convenções de Código
@@ -1384,7 +1432,7 @@ def gerar_dados(ctx: TravelContext, usar_llm: bool = False) -> dict:
 
 **Passo a Passo:**
 
-1. **Atualizar `_CONHECIMENTO_AEREO` em `agents/aereo.py`:**
+1. **Atualizar `_CONHECIMENTO_AEREO` em `app/agents/base_local.py`:**
 ```python
 "novo_destino": [
     {"companhia": "Companhia Real", "escalas": 1, "duracao": "12h00", "preco_base": 2800, "hub": "GRU"},
@@ -1392,7 +1440,7 @@ def gerar_dados(ctx: TravelContext, usar_llm: bool = False) -> dict:
 ],
 ```
 
-2. **Atualizar `_CONHECIMENTO_HOTEL` em `agents/hotel.py`:**
+2. **Atualizar `_CONHECIMENTO_HOTEL` em `app/agents/base_local.py`:**
 ```python
 "novo_destino": {
     "regioes_recomendadas": ["Bairro A", "Bairro B"],
@@ -1410,7 +1458,7 @@ def gerar_dados(ctx: TravelContext, usar_llm: bool = False) -> dict:
 },
 ```
 
-3. **Atualizar `_PONTOS_TURISTICOS` e `_DICAS_GERAIS` em `agents/turismo.py`:**
+3. **Atualizar `_PONTOS_TURISTICOS` e `_DICAS_GERAIS` em `app/agents/base_local.py`:**
 ```python
 "novo_destino": [
     {"nome": "Atração Principal", "categoria": "histórico", "bairro": "Centro", 
@@ -1427,11 +1475,11 @@ _dicas_gerais["novo_destino"] = [
 4. **Testar:**
 ```bash
 # Teste manual via API
-curl -X POST http://localhost:8000/api/plan \
+curl -X POST http://127.0.0.1:8000/api/plan \
   -H "Content-Type: application/json" \
   -d '{"cidade_destino": "Novo Destino", "data_saida": "2026-08-01", "data_retorno": "2026-08-08"}'
 
-# Teste automatizado (adicionar em tests/test_agents.py)
+# Teste automatizado (adicionar em tests/backend/test_agents_complete.py)
 def test_novo_destino_heuristica():
     ctx = TravelContext(..., cidade_destino="Novo Destino", ...)
     resultado = aereo.run(ctx)
@@ -1441,11 +1489,11 @@ def test_novo_destino_heuristica():
 
 ### 12.4 Adicionando um Novo Agente Especialista
 
-**Exemplo: `agente_clima.py`**
+**Exemplo: `app/agents/clima.py`**
 
-1. **Criar `agents/clima.py` seguindo o contrato:**
+1. **Criar `app/agents/clima.py` seguindo o contrato:**
 ```python
-from models import TravelContext, AgentResult
+from app.models import AgentResult, TravelContext
 
 def run(ctx: TravelContext) -> AgentResult:
     try:
@@ -1477,10 +1525,10 @@ def run(ctx: TravelContext) -> AgentResult:
         )
 ```
 
-2. **Registrar no `maestro.py`:**
+2. **Registrar no `app/agents/maestro.py`:**
 ```python
 # Importar
-from agents import clima
+from app.agents import clima
 
 # No método run(), adicionar à execução paralela:
 with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:  # Aumentar workers
@@ -1518,9 +1566,10 @@ return TravelPlan(
 | Item | Prioridade | Esforço | Benefício |
 |------|-----------|---------|-----------|
 | ✅ Remover artefatos (`__MACOSX`, `__pycache__`) | Alta | Baixo | Limpeza do repositório |
-| ✅ Definir `response_model=TravelPlan` no endpoint | Alta | Baixo | Validação automática + docs melhores |
-| ✅ Criar Enums para `status`, `ritmo_roteiro`, preferências | Média | Baixo | Segurança de tipo + autocomplete |
-| 🔄 Adicionar testes de API com `TestClient` | Alta | Médio | Cobertura de integração |
+| ✅ Refatorar arquitetura para `app/api`, `app/models`, `app/agents`, `app/services`, `app/ui` | Alta | Médio | Separação clara de responsabilidades |
+| ✅ Adicionar testes de API com `TestClient` | Alta | Médio | Cobertura de integração |
+| 🔄 Definir `response_model` explícito para endpoints assíncronos | Alta | Baixo | Validação automática + docs melhores |
+| 🔄 Criar Enums para `status`, `ritmo_roteiro`, preferências | Média | Baixo | Segurança de tipo + autocomplete |
 | 🔄 Logging estruturado com `structlog` | Média | Médio | Observabilidade básica |
 | 🔄 Sanitização de inputs para LLM | Alta | Baixo | Segurança contra prompt injection |
 
@@ -1530,7 +1579,7 @@ return TravelPlan(
 |------|-----------|--------------|
 | 🔗 Integração com APIs reais | Amadeus/Skyscanner para voos, Booking/Expedia para hotéis | Chaves de API, contratos de uso |
 | 🌐 Grounding para turismo | Google Places API + Wikipedia para validação de atrações | API keys, tratamento de rate limits |
-| 📡 Progresso real dos agentes | WebSocket ou Server-Sent Events para feedback em tempo real | Refatoração do frontend |
+| 📡 Evoluir progresso em tempo real | SSE já implementado; aprimorar granularidade/estado persistente | Observabilidade e UX |
 | 💾 Persistência de planos | PostgreSQL/SQLite para salvar históricos de viagem | Modelagem de banco, migrações |
 | 🔐 Autenticação básica | JWT para usuários registrados | Sistema de usuários, hash de senhas |
 | 🧪 Avaliação automática de roteiros | Métricas de qualidade baseadas em dados reais | Dataset de avaliação, scoring |
@@ -1590,12 +1639,12 @@ return TravelPlan(
 ```bash
 # Terminal 1: Iniciar servidor
 $ ./run.sh
-🚀 Iniciando servidor em http://localhost:8000
-   Acesse a interface web em http://localhost:8000
-   Documentação da API em   http://localhost:8000/docs
+🚀 Iniciando servidor em http://127.0.0.1:8000
+   Acesse a interface web em http://127.0.0.1:8000
+   Documentação da API em   http://127.0.0.1:8000/docs
 
 # Terminal 2: Testar via curl
-$ curl -X POST http://localhost:8000/api/plan \
+$ REQUEST_ID=$(curl -s -X POST http://127.0.0.1:8000/api/plan \
   -H "Content-Type: application/json" \
   -d '{
     "cidade_destino": "Lisboa",
@@ -1605,7 +1654,10 @@ $ curl -X POST http://localhost:8000/api/plan \
     "quantidade_viajantes": 2,
     "ritmo_roteiro": "moderado",
     "interesses": ["história", "gastronomia"]
-  }' | jq '.resumo, .plano_integrado.estimativa_custos'
+  }' | jq -r '.request_id')
+
+$ curl -s "http://127.0.0.1:8000/api/result/$REQUEST_ID" \
+  | jq '.resumo, .plano_integrado.estimativa_custos'
 
 {
   "cidade_destino": "Lisboa",

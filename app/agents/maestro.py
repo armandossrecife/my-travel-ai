@@ -8,12 +8,17 @@ em skill.md e plano.md.
 
 import concurrent.futures
 import uuid
-from datetime import date, datetime
 from typing import Optional
 
-from agents import aereo, hotel, turismo
-from agents.logger import event_logger, log_error, log_info, log_success, log_warning
-from models import (
+from app.agents import aereo, hotel, turismo
+from app.agents.logger import (
+    event_logger,
+    log_error,
+    log_info,
+    log_success,
+    log_warning,
+)
+from app.models import (
     AgentResult,
     CostEstimation,
     ExecutionMetadata,
