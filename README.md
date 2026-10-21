@@ -142,6 +142,7 @@ O progresso do processamento é exposto por eventos em memória:
 - Planejamento: [planos](planos)
 - Revisões/documentação auxiliar: [docs](docs)
 - Testes automáticos: [tests](tests)
+- Telas da aplicação: [telas](https://github.com/armandossrecife/my-travel-ai/tree/main/docs/telas)
 
 ## Contato
 
